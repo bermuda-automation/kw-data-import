@@ -1,6 +1,8 @@
+import csv
+import pandas as pd
 
 # Import
-df = pd.read_csv("data/latest_landvaluation_data.csv")
+df = pd.read_csv("data/landvaluation/latest_landvaluation_data.csv")
 
 
 ##### change to lower
@@ -8,6 +10,18 @@ df["property_type"] = df["property_type"].str.lower().str.strip()
 df["tax_code"] = df["tax_code"].str.lower().str.strip()
 df["address_low"] = df["address"].str.lower().str.strip()
 df["building_name_low"] = df["building_name"].str.lower().str.strip()
+
+##### Simplify Categories
+# Load Dictionary from CSV
+with open('./data/property_type_dict.csv') as csv_file:
+    reader = csv.reader(csv_file)
+    property_type_dict = dict(reader)
+
+# Map new categories using the dictionary    
+df2=df.replace({"property_type": property_type_dict})
+df2["property_type"].value_counts() # the last one is currently "land"
+len(df2["property_type"].value_counts()) # there are currently 19 property_type
+
 
 ##### change ARV to numbers
 df2.arv = df2.arv.map(lambda x: int(x.replace(',','').replace('$','')))
@@ -31,7 +45,5 @@ else:
     print("Min ARV:", minarv, "and", "Max ARV", mxarv,  "[OK]")
 
 
-
-
 # save to CSV
-df2.to_csv("./data/initial_data/kw-properties.csv", index=False)
+df2.to_csv("./data/kw-properties.csv", index=False)

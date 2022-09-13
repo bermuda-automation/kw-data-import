@@ -2,20 +2,16 @@
 import decimal
 import math
 import dateutil.parser
-from operator import itemgetter
+
 
 import pandas as pd
 import numpy as np
 
 # LTRO functions
-from utils.LTROutils import get_assessment_number, \
-                            identify_fractionals, identify_land_house_condo, \
-                            process_duplicates, find_combined_arv, \
-                            add_arv_to_ltro, clean_property_type, \
-                            nr_of_decimals, smtm, \
-                            get_units, convert_to_ha
+import utils.LTROutils as LT
 
-df = pd.read_excel("./data/LTRO/LTRO_2018_2022_v1.xlsx", header=None, skiprows=9)
+df = pd.read_excel("./data/LTRO/LTRO_2018_2022.xlsx", header=None, skiprows=9)
+older_ltro = pd.read_csv("./data/LTRO/LTRO_2018.csv")
 
 # delete all empty columns & rows
 df = df.dropna(axis=1, how='all')
@@ -71,8 +67,8 @@ df = df.drop(df[(df.address.str.len() < 10) & (df.assessment_number_list == "Unk
 df['registration_date'] =  pd.to_datetime(df['registration_date'], format='%Y-%m-%d %H:%M:%S.%f').dt.date
 df.reset_index(drop=True, inplace=True)
 
-older_ltro = pd.read_csv("./data/LTRO/LTRO_2018.csv")
-df = older_ltro.append(df)
+
+df = pd.concat([older_ltro,df])
 df.reset_index(drop=True, inplace=True)
 
 
@@ -80,8 +76,8 @@ df.reset_index(drop=True, inplace=True)
 # a new columns called "property_type"
 # is defined. It will contain either
 # "fractional", "land" or "0" otherwise
-df = identify_fractionals(df)
-df = identify_land_house_condo(df)
+df = LT.identify_fractionals(df)
+df = LT.identify_land_house_condo(df)
 
 # Remove Duplicates
 LTRO_entries = df.shape[0]
@@ -99,25 +95,28 @@ if df[df['application_number'].duplicated()].shape[0] > 0:
 # keep=False to show all duplicate entries (not just the ones after the first)
 to_process = df[df['application_number'].duplicated(keep=False)].shape[0]
 
-df = process_duplicates(df)
+df = LT.process_duplicates(df)
 print(to_process, " rows processed for duplicates")
 
-lv = pd.read_csv("./initial_data/kw-properties.csv")
-df = add_arv_to_ltro(df,lv)
+lv = pd.read_csv("./data/kw-properties.csv")
+df = LT.add_arv_to_ltro(df,lv)
 
 # improve sales property type data
-df = clean_property_type(df, lv)
+df = LT.clean_property_type(df, lv)
 
 # keep only properties such that the sales price is more than 3 years of rent.
 df = df[~(df['combined_arv']*3 >= df['price'])] #  & (df.property_type != 'fractional')]
 
-df = clean_area(df)
+df = LT.clean_area(df)
 
 
 # Save to CSV
 final_df = df[["application_number", "registration_date", "parish", "parcel_area", "parcel_area_ha",
-              "assessment_number_list", "acquisition_date", "price", "arv", "combined_arv", "property_type"]]
-final_df.assessment_number_list = final_df.assessment_number_list.map(get_assessment_number)
+              "assessment_number_list", "acquisition_date", "price", "arv", "combined_arv", "property_type"]].copy(deep=False)
+final_df.assessment_number_list = final_df.assessment_number_list.apply(LT.get_assessment_number)
+
 final_df.to_csv("./data/kw-sales.csv", index=False)
+
+print("\n >> LTRO DATA IMPORTED << \n")
 
 
