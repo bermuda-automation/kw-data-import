@@ -34,31 +34,30 @@ The data is then ready for import into the webapp.
 Preparing the data is divided into 3 scripts:
 
 1. `process_landvaluation.py` (to be run approximately every 6 months)
-    * > input: `latest_landvaluation_data.csv` 
-	* > output: `kw-properties.csv`
+    * input: `latest_landvaluation_data.csv` 
+	* output: `kw-properties.csv`
 	
 2. `process_skipper.py` (to be run daily)
-   > input: `Web API`
-   > output: `kw-skipper_properties.csv` and `kw-listings.csv`
+   * input: `Web API`
+   * output: `kw-skipper_properties.csv` and `kw-listings.csv`
 
 3. `process_LTRO.py` (to be run every 3 - 6 months)
-   > input: `LTRO_2018-2022.csv` and `LTRO_latest.csv`
-   > ouput: `kw-sales.csv`
+   * input: `LTRO_2018_2022.xlsx` and `LTRO_2018.csv`
+   * ouput: `kw-sales.csv`
 
 
-the data in these 4 separate `.csv` files:
+To seed the final database, we will use the 4 `.csv` files:
 - `kw-properties.csv`
 - `kw-skipper_properties.csv`
 - `kw-listings.csv`
 - `kw-sales.csv`
 
-will seed the final database.
 
-# Details of each script:
+## Details of each script:
 
-This notebook has the following structure:
 
-1. Open landvaluation.bm data
+1. `process_landvaluation.py`:
+   * Opens landvaluation.bm data
    * Transform `property_type` with Albert's dictionary
    * Sanity check (about 32,000 entries, no duplicates, range of ARVs)
    * save to `kw-properties.csv`

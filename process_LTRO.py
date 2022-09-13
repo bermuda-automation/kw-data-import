@@ -15,7 +15,7 @@ from utils.LTROutils import get_assessment_number, \
                             nr_of_decimals, smtm, \
                             get_units, convert_to_ha
 
-df = pd.read_excel("./LTRO/LTRO_2018_2022_v1.xlsx", header=None, skiprows=9)
+df = pd.read_excel("./data/LTRO/LTRO_2018_2022_v1.xlsx", header=None, skiprows=9)
 
 # delete all empty columns & rows
 df = df.dropna(axis=1, how='all')
@@ -30,10 +30,9 @@ header_list = merged_header.values.tolist()
 
 # hack for 2022 as the sheet has yet again different headers
 new_header_list = ['application_number', 'kill', 'sale_type', 'kill', 'registration_date', 
-        'Vendor\nName and Nationality', 'Purchaser\nName and Nationality', 
-      'parish', 'kill', 'parcel_area', 'kill', 'assessment_number_list', 'address', 
-     'Law Firm', 'Mode of\nAcquisition', 'acquisition_date', 'Nature of\nInterest', 
-      'price']
+                   'kill', 'kill', 'parish', 'kill', 'parcel_area', 'kill',
+                   'assessment_number_list', 'address', 'kill',
+                   'Mode of\nAcquisition', 'acquisition_date', 'Nature of\nInterest', 'price']
 
 
 
@@ -67,7 +66,16 @@ df = df.drop(df[(df.address.str.len() < 10) & (df.assessment_number_list == "Unk
 # unidentified = df[(df.address.str.len() < 10) & (df.assessment_number_list == 0)] # .price.sum()
 # unidentified.to_excel("./data/LTRO/unidentified.xlsx")
 
+
+# Remove time from the timestamps
+df['registration_date'] =  pd.to_datetime(df['registration_date'], format='%Y-%m-%d %H:%M:%S.%f').dt.date
 df.reset_index(drop=True, inplace=True)
+
+older_ltro = pd.read_csv("./data/LTRO/LTRO_2018.csv")
+df = older_ltro.append(df)
+df.reset_index(drop=True, inplace=True)
+
+
 
 # a new columns called "property_type"
 # is defined. It will contain either
@@ -103,63 +111,13 @@ df = clean_property_type(df, lv)
 # keep only properties such that the sales price is more than 3 years of rent.
 df = df[~(df['combined_arv']*3 >= df['price'])] #  & (df.property_type != 'fractional')]
 
+df = clean_area(df)
 
-# clean_area
-unified_area = []
-for idx, row in df.iterrows():
-    si = str(row.parcel_area).lower()
-    
-    if si != 'nan':
-        contains_digit = any(map(str.isdigit, si))
-        contains_units = any
-        if contains_digit:
-            uni = get_units(si)
-            # which one of those units appears first?
-            if len(uni)==1:
-                first_unit = uni[0]
-            
-            elif len(uni)>1:
-                where_are_they = map(lambda x: si.find(x) , uni)
-                wat = list(where_are_they)
-                pos_min = min(enumerate(wat), key=itemgetter(1))[0]
-                first_unit = uni[pos_min]
-            
-            else: # no unit in this string
-                first_unit = None
-                unified_area.append(None)
-                continue
-            
-            # Two properties or a single one?
-            one_or_several = si.split(first_unit)
-            
-            if len(one_or_several) > 2:
-                # there are several lands with the same unit
-                # could be improved latter by trying to add them up
-                unified_area.append(None)
-            else:
-                converted_surface = convert_to_ha(one_or_several[0], first_unit)
-                if converted_surface:
-                    unified_area.append(round(converted_surface, 3))
-                else:
-                    unified_area.append(None)
-                
-                # just a single land. Save it to standard units
-            
-        else: # does not contain digit
-            unified_area.append(None)
-    else: # it is nan
-        unified_area.append(None)
-        
-    # 1. is there a number?
-    # 2. is there a unit?
-    # if not save zero, otherwise convert to Ha and store
-
-# Create New Dataframe Column
-df['parcel_area_ha'] = unified_area
 
 # Save to CSV
 final_df = df[["application_number", "registration_date", "parish", "parcel_area", "parcel_area_ha",
               "assessment_number_list", "acquisition_date", "price", "arv", "combined_arv", "property_type"]]
 final_df.assessment_number_list = final_df.assessment_number_list.map(get_assessment_number)
-final_df.to_csv("./preprocessed_data/kw-sales.csv", index=False)
+final_df.to_csv("./data/kw-sales.csv", index=False)
+
 

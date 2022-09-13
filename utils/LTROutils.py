@@ -313,6 +313,63 @@ def clean_property_type(df, lv):
 
 
 
+
+def clean_area(df):
+    # clean_area
+    # 1. is there a number?
+    # 2. is there a unit?
+    # if not save zero, otherwise convert to Ha and store
+    unified_area = []
+    for idx, row in df.iterrows():
+        si = str(row.parcel_area).lower()
+        
+        if si != 'nan':
+            contains_digit = any(map(str.isdigit, si))
+            contains_units = any
+            if contains_digit:
+                uni = get_units(si)
+                # which one of those units appears first?
+                if len(uni)==1:
+                    first_unit = uni[0]
+                    
+                elif len(uni)>1:
+                    where_are_they = map(lambda x: si.find(x) , uni)
+                    wat = list(where_are_they)
+                    pos_min = min(enumerate(wat), key=itemgetter(1))[0]
+                    first_unit = uni[pos_min]
+                    
+                else: # no unit in this string
+                    first_unit = None
+                    unified_area.append(None)
+                    continue
+                
+                # Two properties or a single one?
+                one_or_several = si.split(first_unit)
+                
+                if len(one_or_several) > 2:
+                    # there are several lands with the same unit
+                    # could be improved latter by trying to add them up
+                    unified_area.append(None)
+                else:
+                    converted_surface = convert_to_ha(one_or_several[0], first_unit)
+                    if converted_surface:
+                        unified_area.append(round(converted_surface, 3))
+                    else:
+                        unified_area.append(None)
+                        
+                    # just a single land. Save it to standard units
+                
+            else: # does not contain digit
+                unified_area.append(None)
+        else: # it is nan
+            unified_area.append(None)
+            
+    # Create New Dataframe Column
+    df['parcel_area_ha'] = unified_area
+    return df
+
+
+
 def nr_of_decimals(x):
     '''
     returns the number of decimals in a float:
