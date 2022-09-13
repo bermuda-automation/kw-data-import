@@ -25,7 +25,7 @@ Importing the data requires some previous steps:
 - Converting to `.csv`
 - Cleaning up the data
 - Making data labels, categories or bins homogeneous
-- Saving to processed `.csv`
+- Saving the processed data to `.csv` files
 
 The data is then ready for import into the webapp.
 
@@ -34,8 +34,8 @@ The data is then ready for import into the webapp.
 Preparing the data is divided into 3 scripts:
 
 1. `process_landvaluation.py` (to be run approximately every 6 months)
-    > input: `latest_landvaluation_data.csv` 
-	> output: `kw-properties.csv`
+    * > input: `latest_landvaluation_data.csv` 
+	* > output: `kw-properties.csv`
 	
 2. `process_skipper.py` (to be run daily)
    > input: `Web API`
