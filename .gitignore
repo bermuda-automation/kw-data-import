@@ -1,0 +1,8 @@
+# ignore emacs temp files
+*~
+\#*\#
+
+# ignore everything in data folder
+data/*
+# exception
+!data/README.md
