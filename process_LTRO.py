@@ -10,8 +10,13 @@ import numpy as np
 # LTRO functions
 import utils.LTROutils as LT
 
-df = pd.read_excel("./data/LTRO/LTRO_2018_2022.xlsx", header=None, skiprows=9)
-older_ltro = pd.read_csv("./data/LTRO/LTRO_2018.csv")
+
+# parameters:
+recent_LTRO_data = "./data/LTRO/LTRO_2018_2022.xlsx"
+old_processed_LTRO_data = "./data/LTRO/LTRO_2018.csv"
+
+df = pd.read_excel(recent_LTRO_data, header=None, skiprows=9)
+older_ltro = pd.read_csv(old_processed_LTRO_data)
 
 # delete all empty columns & rows
 df = df.dropna(axis=1, how='all')

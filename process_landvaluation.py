@@ -1,8 +1,11 @@
 import csv
 import pandas as pd
 
+
+latest_lv_data = "./data/landvaluation/latest_landvaluation_data.csv"
+
 # Import
-df = pd.read_csv("data/landvaluation/latest_landvaluation_data.csv")
+df = pd.read_csv(latest_lv_data)
 
 
 ##### change to lower
