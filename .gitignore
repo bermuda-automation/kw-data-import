@@ -3,7 +3,7 @@
 \#*\#
 
 # API
-data/utils/kw_config.txt
+utils/kw_config.txt
 
 # ignore everything in data folder
 data/*
