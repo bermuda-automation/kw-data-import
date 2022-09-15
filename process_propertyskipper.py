@@ -30,3 +30,19 @@ print("properties cleaned, property_type identified. FINISHED.\n\n")
 # - reverse order (clean and flag, after idenfity land and fractional which are not flagged)
  
 
+skipper_property = df[["skipper_id","assessment_number", "name", "city", "zip", "flag", 
+      "longitude", "latitude",
+     "property_type",
+     "url", "views", "special_headline", "short_description", "long_description",
+     'youtube_id', 'vimeo_id', 'rego_embed_id', 'paradym_url',  'virtual_tour_url', 'virtual_tour_img',
+     "images",
+     'bedrooms', 'bathrooms', 'half_bathrooms', "lotsize", 'sqft']]
+
+listing = df[["skipper_id","date_added", "date_relisted", "is_rent", "is_sale", 
+                "under_contract", "under_offer", "buyer_type",
+               "price", "price_from", "daily_rate",
+               'agent']]
+
+skipper_property.to_csv("./data/kw-skipper_properties.csv")
+listing.to_csv("./data/kw-listings.csv")
+print("Export Files exported to CSV into ./data/")
