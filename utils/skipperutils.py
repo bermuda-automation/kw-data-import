@@ -23,7 +23,7 @@ def download_skipper_xml(url):
     
     # define file to save to
     today = datetime.today()
-    datafile = 'data/skipper/{}-{}-{}_skipper_properties.xml'.format(today.year, today.month, today.day)
+    datafile = 'data/skipper/{}-{:02d}-{:02d}_skipper_properties.xml'.format(today.year, today.month, today.day)
     # Save data to local file
     with open(datafile, 'wb') as f:
         f.write(resp.content)
@@ -84,6 +84,14 @@ def download_skipper_xml(url):
     os.remove(datafile)
     return csvdata
 
+def let_or_rent(df):
+    # Currently, in bermuda, we find "is_let = 0" for all properties.
+    # this is because bermuda uses the is_rent (US version)
+    # in case rent or let exist at the same time or separately:
+    rent_or_let = df["is_let"] + df["is_rent"]
+    rent_or_let.apply(lambda x: 0 if x < 0 else 1)
+    df["is_rent"] = rent_or_let  # now can be 0=not_rent or 1=rent
+    return df
 
 def _fractional_filter(df):
     """
@@ -113,50 +121,84 @@ def contains_number(value):
     ''' check if the value has numbers '''
     return bool(re.findall('[0-9]+', value))
 
-def clean_and_flag_properties(csv):
-    '''
-    Create a dataframe from the csv file and then,
-    Flag properties:
-    - without assessment number
-    - without address
-    - with the wrong country
-    '''
-    dfps = pd.read_csv(csv)
-    flag_list = []
-    for index, row in dfps.iterrows():
-        an = row.assessment_number
-        nam = str(row["name"])
-        
-        if type(an) == float:
-            # catch assessment_numver == nan
-            flag_list.append("FLAG - Assn #")
-        elif (len(an) == 8) or (len(an)== 9):
-            # has a valid assessment number
-            if (contains_number(nam)) and (len(nam) > 20):
-                # probably has a valid address
-                # at least it is long and has a number
-                flag_list.append(0) # 0 = no flag
-            elif str(an) == "000000000" or str(an) == "00000000":
-                flag_list.append("FLAG - Assn #")
-            else:
-                # if it either
-                # - has a number but is short
-                # - has no number
-                # it probably needs to be reviewed
-                flag_list.append("FLAG - Addr")
-                
-        elif row["country"].lower() != "bermuda":
-            flag_list.append("FLAG - Country")
-        else:
-            flag_list.append("FLAG - Assn #")
-    dfps["flag"] = flag_list
+def _price_filter(df):
+    """
+    function to filter dataframe searching for incorrect prices
+    which we will use to flag properties for review
+    adds the string "PRICE" to corresponding row of df.flag
+    if price is incorrect.
+    """
+    if pd.isnull(df['price']):
+        return "PRICE"
+    elif df["price"] == 0 or df["price"] == "0":
+        return "PRICE"
+    elif (df.price < 2000) & (df.is_sale == 1):
+        return "PRICE"   # $2000 is too cheap for a sale in Bermuda
+    else:
+        return df['flag']
 
-    # Currently in bermuda we find all "is_let = 0".
-    # in case rent or let exist at the same time or separately:
-    rent_or_let = dfps["is_let"] + dfps["is_rent"]
-    rent_or_let.apply(lambda x: 0 if x < 0 else 1)
-    dfps["is_rent"] = rent_or_let  # now can be 0=not_rent or 1=rent
-    return dfps
+def _assessment_number_filter(df):
+    """
+    function to filter dataframe searching for anomalous assessment numbers or addresses
+    adds string "Assn Nr" or "Address" if appropriate 
+    """
+    if pd.isnull(df.assessment_number) and not df["flag"] and df["property_type"] != "land":
+        return "ASSN #"
+    elif pd.isnull(df.assessment_number) and df["flag"] and df["property_type"] != "land":
+        return df["flag"] + ", ASSN #"
+    elif (str(df.assessment_number) == "00000000" or str(df.assessment_number) == "000000000") and not df['flag'] and df['property_type'] != "land":
+        return "ASSN #"
+    elif (str(df.assessment_number) == "00000000" or str(df.assessment_number) == "000000000") and df['flag'] and df['property_type'] != "land":
+        return df["flag"] + ", ASSN #"
+    elif (len(str(df.assessment_number)) == 8) or (len(str(df.assessment_number)) == 9):
+         return df["flag"]    # probably correct
+    elif df['property_type'] == "land":
+        return df["flag"]
+    else:
+        return "ASSN #" # if we got here it's not an 8 or 9 character number => likely bad assessment number
+
+def _address_filter(df):
+    """ """
+    if pd.isnull(df["name"]) and not df["flag"]:
+        return "ADDRESS"
+    elif pd.isnull(df["name"]) and df["flag"]:
+        return df["flag"] + ", ADDRESS"
+    elif len(df["name"]) < 20 and not df["flag"]:
+        return "ADDRESS" # Address seems too short
+    elif len(df["name"]) < 20 and df["flag"]:
+        return df["flag"] + ", ADDRESS"
+    elif not contains_number(df["name"]) and not df["flag"]:
+        return "ADDRESS"
+    elif not contains_number(df["name"]) and df["flag"]:
+        return df["flag"] + ", ADDRESS"
+    else:
+        return df.flag # probably ok
+
+def _country_filter(df):
+    """
+    find incorrect country
+    (unlikely to be an error, but just in case)
+    """
+    if pd.isnull(df.country):
+        return "COUNTRY"
+    elif df.country != "bermuda":
+        return "COUNTRY"
+    else:
+        return df["flag"]
+    
+
+def clean_and_flag_properties(df):
+    
+    # prepare data
+    df["property_type"] = df["property_type"].str.lower()
+    df["country"] = df["country"].str.lower()   
+    # apply flag filters
+    df["flag"] = df.apply(_price_filter, axis = 1)
+    df["flag"] = df.apply(_country_filter, axis = 1)
+    df["flag"] = df.apply(_address_filter, axis = 1)
+    df["flag"] = df.apply(_assessment_number_filter, axis = 1)
+    return df
+    
 
 def uniform_property_type(df):
     """
