@@ -7,7 +7,7 @@ from datetime import datetime
 
 import requests 
 import pandas as pd
-import numpy as np
+
 
 def download_skipper_xml(url):
     """
@@ -50,7 +50,7 @@ def download_skipper_xml(url):
     all_properties = []
     for tag in root.findall('property'):
         nfields = len(tag)
-        aprop = {}
+        aprop = {} # a property
         for i in range(nfields):
             if len(tag[i]) > 0:
                 # has sub-fields
@@ -59,7 +59,7 @@ def download_skipper_xml(url):
                     if subtag.text is None:
                         pass
                     else:
-                        subfield_list.append(subtag.text) # .encode('utf8'))
+                        subfield_list.append(subtag.text.encode('utf8'))
                 aprop[tag[i].tag] = subfield_list
             else: # has no sub-fields
                 if tag[i].text is None:
@@ -73,7 +73,7 @@ def download_skipper_xml(url):
     csvdata = 'data/skipper/{}-{}-{}_skipper_properties.csv'.format(today.year, today.month, today.day)
     
     # writing to csv file
-    with open(csvdata, 'w', encoding='utf8') as csvfile:
+    with open(csvdata, 'w', encoding='utf8') as csvfile: # , encoding='utf8') as csvfile:
         # creating a csv dict writer object 
         writer = csv.DictWriter(csvfile, fieldnames = all_fields)
         # writing headers (field names)
@@ -92,6 +92,41 @@ def let_or_rent(df):
     rent_or_let.apply(lambda x: 0 if x < 0 else 1)
     df["is_rent"] = rent_or_let  # now can be 0=not_rent or 1=rent
     return df
+
+
+
+def clean_ass_nr(an):
+    if an == None:
+        return 0
+    elif type(an) == "str" and an.isalpha():
+        # assessment number can't be made of letters only
+        return 0
+    else:
+        try:
+            _an = int(an)
+            if _an == 0:
+                return 0
+            else:
+                # not letters, not None, not zero
+                return an
+        except:
+            # it was not a number
+            return 0
+
+
+def clean_address(addr):
+    if addr == None:
+        return ""
+    else:
+        try:
+            # this should fail
+            # the address can't be just a number
+            addr = int(an)
+            return ""
+        except:
+            # it was not a number
+            return addr
+        
 
 def _fractional_filter(df):
     """
@@ -117,88 +152,6 @@ def identify_land_and_fractional(df):
     return df
 
 
-def contains_number(value):
-    ''' check if the value has numbers '''
-    return bool(re.findall('[0-9]+', value))
-
-def _price_filter(df):
-    """
-    function to filter dataframe searching for incorrect prices
-    which we will use to flag properties for review
-    adds the string "PRICE" to corresponding row of df.flag
-    if price is incorrect.
-    """
-    if pd.isnull(df['price']):
-        return "PRICE"
-    elif df["price"] == 0 or df["price"] == "0":
-        return "PRICE"
-    elif (df.price < 2000) & (df.is_sale == 1):
-        return "PRICE"   # $2000 is too cheap for a sale in Bermuda
-    else:
-        return df['flag']
-
-def _assessment_number_filter(df):
-    """
-    function to filter dataframe searching for anomalous assessment numbers or addresses
-    adds string "Assn Nr" or "Address" if appropriate 
-    """
-    if pd.isnull(df.assessment_number) and not df["flag"] and df["property_type"] != "land":
-        return "ASSN #"
-    elif pd.isnull(df.assessment_number) and df["flag"] and df["property_type"] != "land":
-        return df["flag"] + ", ASSN #"
-    elif (str(df.assessment_number) == "00000000" or str(df.assessment_number) == "000000000") and not df['flag'] and df['property_type'] != "land":
-        return "ASSN #"
-    elif (str(df.assessment_number) == "00000000" or str(df.assessment_number) == "000000000") and df['flag'] and df['property_type'] != "land":
-        return df["flag"] + ", ASSN #"
-    elif (len(str(df.assessment_number)) == 8) or (len(str(df.assessment_number)) == 9):
-         return df["flag"]    # probably correct
-    elif df['property_type'] == "land":
-        return df["flag"]
-    else:
-        return "ASSN #" # if we got here it's not an 8 or 9 character number => likely bad assessment number
-
-def _address_filter(df):
-    """ """
-    if pd.isnull(df["name"]) and not df["flag"]:
-        return "ADDRESS"
-    elif pd.isnull(df["name"]) and df["flag"]:
-        return df["flag"] + ", ADDRESS"
-    elif len(df["name"]) < 20 and not df["flag"]:
-        return "ADDRESS" # Address seems too short
-    elif len(df["name"]) < 20 and df["flag"]:
-        return df["flag"] + ", ADDRESS"
-    elif not contains_number(df["name"]) and not df["flag"]:
-        return "ADDRESS"
-    elif not contains_number(df["name"]) and df["flag"]:
-        return df["flag"] + ", ADDRESS"
-    else:
-        return df.flag # probably ok
-
-def _country_filter(df):
-    """
-    find incorrect country
-    (unlikely to be an error, but just in case)
-    """
-    if pd.isnull(df.country):
-        return "COUNTRY"
-    elif df.country != "bermuda":
-        return "COUNTRY"
-    else:
-        return df["flag"]
-    
-
-def clean_and_flag_properties(df):
-    
-    # prepare data
-    df["property_type"] = df["property_type"].str.lower()
-    df["country"] = df["country"].str.lower()   
-    # apply flag filters
-    df["flag"] = df.apply(_price_filter, axis = 1)
-    df["flag"] = df.apply(_country_filter, axis = 1)
-    df["flag"] = df.apply(_address_filter, axis = 1)
-    df["flag"] = df.apply(_assessment_number_filter, axis = 1)
-    return df
-    
 
 def uniform_property_type(df):
     """
@@ -216,3 +169,116 @@ def uniform_property_type(df):
     #
     return df2
 
+                                                            
+
+def contains_number(value):
+    ''' check if the value has numbers '''
+    return bool(re.findall('[0-9]+', value))
+
+
+def _price_filter(df):
+    """
+    function to filter dataframe searching for incorrect prices
+    which we will use to flag properties for review
+    adds the string "PRICE" to corresponding row of df.flag
+    if price is incorrect.
+    """
+    if pd.isnull(df['price']):
+        return "PRICE"
+    elif df["price"] == 0 or df["price"] == "0":
+        return "PRICE"
+    elif (int(df.price) < 2000) & (df.is_sale == 1):
+        return "PRICE"   # $2000 is too cheap for a sale in Bermuda
+    else:
+        return ""  # df['flag']
+
+def _assessment_number_filter(df):
+    """
+    function to filter dataframe searching for anomalous assessment numbers or addresses
+    adds string "Assn Nr" or "Address" if appropriate 
+    uniform_property_type(df) function should have run before running this one
+    """
+    if  df["property_type"] == "land" or df["property_type"] == "fractional":
+        return ""
+    elif not df["assessment_number"]:
+        # not a land, not fractional and ass_nr missing
+        return "ASSN#"
+    elif df["assessment_number"] == 0 :
+        return "ASSN#"
+    elif (len(str(df.assessment_number)) == 8) or (len(str(df.assessment_number)) == 9):
+         return ""  # probably correct
+    else:
+        return "ASSN#" # if we got here it's not an 8 or 9 character number => likely bad assessment number
+
+
+def _address_filter(df):
+    """ 
+    Flag address only if it has no assessment number
+    If it has an assessment number then we can match it with the 
+    landvaluation database which has accurate addresses.
+    if a flag already exists, then append this new one to it.
+    """
+    if df["property_type"] == "land" and len(df["name"]) < 20:
+        # land wont have assessment number to locate it, so a short address is insufficient
+        return "ADDRESS"
+    elif df["property_type"] == "fractional" and not contains_number(df["name"]):
+        # fractional won't have assessment number, and an address without number is unlikely to be good
+        return "ADDRESS"
+    elif df["property_type"] == "fractional" and len(df["name"]) < 20:
+        return "ADDRESS"
+    elif not df["assessment_number"] and ((len(df["name"]) < 20) or not contains_number(df["name"])):
+        return "ADDRESS"
+    elif (len(str(df.assessment_number)) == 8) or (len(str(df.assessment_number)) == 9):
+        return ""
+    elif len(df["name"]) < 20: 
+        return "ADDRESS" # Address seems too short
+    elif not contains_number(df["name"]):
+        return "ADDRESS"
+    else:
+        return "" # probably ok
+
+
+def _country_filter(df):
+    """
+    find incorrect country
+    (unlikely to be an error, but just in case)
+    """
+    if pd.isnull(df.country):
+        return "COUNTRY"
+    elif df.country != "bermuda":
+        return "COUNTRY"
+    else:
+        return df["flag"]
+
+def clean_and_flag_properties(df):
+    """
+    we use the filters defined above
+    to creates columns with flags if there
+    are problems with address, assessment number or price
+    we then concatenate these columns
+    """
+    # add column for flags 
+    df["flag"] = ""
+    # prepare data
+    df["property_type"] = df["property_type"].str.lower()
+    df["country"] = df["country"].str.lower()
+
+    flags_address = df.apply(_address_filter, axis = 1)
+    flags_an = df.apply(_assessment_number_filter, axis =1)  
+    flags_price = df.apply(_price_filter, axis =1)
+
+    # apply flag filters
+    # note that all filters return strings, so we can concatenate them later
+    df["flag"] = flags_address.str.cat(flags_an, sep=" ").str.cat(flags_price, sep=" ").str.strip()
+    return df
+    
+
+def sanitize_text(df):
+    """
+    Map carriage returns like \r to \n
+    to avoid problems when converting to .csv
+    as \r can result in a new line half way through the csv row.
+    """
+    df.replace('\\n', '', regex=True, inplace=True)
+    df.replace('\\r', ' ', regex=True, inplace=True)
+    return df                  

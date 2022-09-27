@@ -57,16 +57,12 @@ df = df.replace(np.nan, 0, regex=True)
 # these are generally government leases for a symbolic price
 df = df[df.price >= 1000]
 
-
 # Remove properties which are unidentifiable:
 # - have no assessment number 
 # - have assessment number "unknown"
 # - have no address: Many just have a short code like SM-800/1, DE-1886/A, *, etc
 df = df.drop(df[(df.address.str.len() < 10) & (df.assessment_number_list == 0)].index)
 df = df.drop(df[(df.address.str.len() < 10) & (df.assessment_number_list == "Unknown")].index)
-# unidentified = df[(df.address.str.len() < 10) & (df.assessment_number_list == 0)] # .price.sum()
-# unidentified.to_excel("./data/LTRO/unidentified.xlsx")
-
 
 # Remove time from the timestamps
 df['registration_date'] =  pd.to_datetime(df['registration_date'], format='%Y-%m-%d %H:%M:%S.%f').dt.date
@@ -75,8 +71,6 @@ df.reset_index(drop=True, inplace=True)
 
 df = pd.concat([older_ltro,df])
 df.reset_index(drop=True, inplace=True)
-
-
 
 # a new columns called "property_type"
 # is defined. It will contain either
