@@ -47,6 +47,6 @@ if mxarv > 10000000:
 else:
     print("Min ARV:", minarv, "and", "Max ARV", mxarv,  "[OK]")
 
-
+df_for_export = df2[["assn_nr","arv","tax_code","property_type", "address", "grid", "parish", "building_name"]]
 # save to CSV
-df2.to_csv("./data/kw-properties.csv", index=False)
+df_for_export.to_csv("./data/kw-properties.csv", index=False)
