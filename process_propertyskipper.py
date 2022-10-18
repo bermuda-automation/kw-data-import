@@ -41,6 +41,11 @@ print("FLAGS added to properties with missing data\n")
 # \r -> mapped to \n
 df = skipu.sanitize_text(df)
 
+
+# Convert agents column from list to dict:
+# https://github.com/bermuda-automation/kw-data-import/issues/3
+df["agent"] = df.agent.apply(skipu.clean_up_agent_list).apply(skipu.agent_list_to_dict)
+
 # Save to the two CSVs
 skipper_property = df[["reference", "skipper_id","assessment_number", "name", "city", "zip", "flag", 
       "longitude", "latitude",

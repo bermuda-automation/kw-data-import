@@ -282,3 +282,43 @@ def sanitize_text(df):
     df.replace('\\n', '', regex=True, inplace=True)
     df.replace('\\r', ' ', regex=True, inplace=True)
     return df                  
+
+
+def remove_extra_chars(x):
+    x_clean = x.replace('b','').replace('[','').replace(']','').replace("'","").strip()
+    return x_clean
+
+def clean_up_agent_list(agent_list_string):
+        return [remove_extra_chars(x)  for x in agent_list_string.split(',')]
+    
+def agent_list_to_dict(agent_list):
+    if len(agent_list) == 5:
+        agent_dict = {
+            "id" : agent_list[0],
+            "name" : agent_list[1],
+            "company" : agent_list[2],
+            "email" : agent_list[3],
+            "phone" : agent_list[4]
+        }
+    elif len(agent_list) == 4:
+        agent_dict = {
+            "id" : agent_list[0],
+            "name" : agent_list[1],
+            "company" : agent_list[2],
+            "phone" : agent_list[3]
+        }
+    elif len(agent_list) == 6:
+        agent_dict = {}
+        agent_dict["id"] = agent_list[0]
+        agent_dict["name"] = agent_list[1]
+        agent_dict["company"] = agent_list[2]
+        agent_dict["email"]= [i for i in agent_list if "@" in i][0]
+    else:
+        agent_dict = {
+            "id" : "Unknown",
+            "name" : "Unknown",
+            "company" : "Unknown",
+            "email" : "Unknown",
+            "phone" : "Unknown"
+        }
+    return agent_dict
