@@ -214,8 +214,16 @@ def find_combined_arv(arv_list):
     if it has only one ARV value, that value will be kept
     '''
     if type(arv_list) == list:
-        return sum(arv_list)
+        if len(arv_list) == 0:
+            return 0 # if some lists are empty lists
+        elif len(arv_list) > 0:
+            return sum(arv_list)
     else:
+        try:
+            arv_list = int(arv_list)
+        except:
+            # catches arv_lists which are empty arrays []
+            arv_list = 0
         return arv_list
 
 

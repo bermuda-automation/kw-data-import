@@ -70,7 +70,7 @@ def download_skipper_xml(url):
 
     # define file to save to
     today = datetime.today()
-    csvdata = 'data/skipper/{}-{}-{}_skipper_properties.csv'.format(today.year, today.month, today.day)
+    csvdata = 'data/skipper/{}-{:02d}-{:02d}_skipper_properties.csv'.format(today.year, today.month, today.day)
     
     # writing to csv file
     with open(csvdata, 'w', encoding='utf8') as csvfile: # , encoding='utf8') as csvfile:
