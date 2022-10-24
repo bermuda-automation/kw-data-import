@@ -1,12 +1,12 @@
 import csv
 import pandas as pd
 
+import utils.LTROutils as LT
 
 latest_lv_data = "./data/landvaluation/latest_landvaluation_data.csv"
 
 # Import
 df = pd.read_csv(latest_lv_data)
-
 
 ##### change to lower
 df["property_type"] = df["property_type"].str.lower().str.strip()
@@ -47,6 +47,10 @@ if mxarv > 10000000:
 else:
     print("Min ARV:", minarv, "and", "Max ARV", mxarv,  "[OK]")
 
+df2 = LT.simplify_parishes(df2)
+    
 df_for_export = df2[["assn_nr","arv","tax_code","property_type", "address", "grid", "parish", "building_name"]]
 # save to CSV
 df_for_export.to_csv("./data/kw-properties.csv", index=False)
+
+

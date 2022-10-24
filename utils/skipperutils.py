@@ -322,3 +322,21 @@ def agent_list_to_dict(agent_list):
             "phone" : "Unknown"
         }
     return agent_dict
+
+def simplify_parishes(df):
+    '''
+    This maps rows with a parish
+    - of "City of Hamilton" to the parish "Pembroke"
+    - of "Town of St. George" to the parish "St. George's"
+    see: https://github.com/bermuda-automation/kw-data-import/issues/4
+    and also some errors found in the parish entries from property-skipper
+    Unless Property Skipper makes a convention for this field, new inconsistencies
+    may appear further down. (I've contacted them to suggest so)
+    '''
+    df["city"] = df.city.replace(["Town of St. George", "City of Hamilton", "City Of Hamilton",
+                                  "CIty of Hamilton", "Hamilton Parish", "St. Georges", "Smith's"], 
+                                 ["St. George's", "Pembroke", "Pembroke",
+                                  "Pembroke", "Hamilton", "St. George's", "Smiths"], regex=False)
+    df.rename(columns = {'city':'parish'}, inplace = True)
+    return df
+

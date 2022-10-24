@@ -446,3 +446,15 @@ def convert_to_ha(value, unit):
             return new_value
         except:
             return None
+
+def simplify_parishes(df):
+    '''
+    This maps rows with a parish
+    - of "City of Hamilton" to the parish "Pembroke"
+    - of "Town of St. George" to the parish "St. George's"
+    see: https://github.com/bermuda-automation/kw-data-import/issues/4
+    '''
+    df["parish"] = df.parish.replace(["Town of St. George", "City of Hamilton"], 
+                                 ["St. George's", "Pembroke"], regex=False)
+    return df
+        

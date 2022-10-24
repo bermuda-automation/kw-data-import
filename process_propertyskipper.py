@@ -46,8 +46,13 @@ df = skipu.sanitize_text(df)
 # https://github.com/bermuda-automation/kw-data-import/issues/3
 df["agent"] = df.agent.apply(skipu.clean_up_agent_list).apply(skipu.agent_list_to_dict)
 
+# rename column city -> parish
+# make naming uniform
+# merge city hamilton -> pembroke and Town of St.George -> St. George
+df = skipu.simplify_parishes(df)
+
 # Save to the two CSVs
-skipper_property = df[["reference", "skipper_id","assessment_number", "name", "city", "zip", "flag", 
+skipper_property = df[["reference", "skipper_id","assessment_number", "name", "parish", "zip", "flag", 
       "longitude", "latitude",
      "property_type",
      "url", "views", "special_headline", "short_description", "long_description",

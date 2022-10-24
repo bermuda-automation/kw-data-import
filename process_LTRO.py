@@ -107,7 +107,7 @@ df = LT.clean_property_type(df, lv)
 df = df[~(df['combined_arv']*3 >= df['price'])] #  & (df.property_type != 'fractional')]
 
 df = LT.clean_area(df)
-
+df = LT.simplify_parishes(df)
 
 # Save to CSV
 final_df = df[["application_number", "registration_date", "parish", "parcel_area", "parcel_area_ha",
