@@ -339,4 +339,3 @@ def simplify_parishes(df):
                                   "Pembroke", "Hamilton", "St. George's", "Smiths"], regex=False)
     df.rename(columns = {'city':'parish'}, inplace = True)
     return df
-

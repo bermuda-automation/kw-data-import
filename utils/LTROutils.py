@@ -2,6 +2,77 @@
 import decimal
 from operator import itemgetter
 
+import pandas as pd
+import numpy as np
+
+def clean_ltro_data(df):
+    """
+    takes a dataframe which has just been imported
+    from an LTRO XLSX file and applies some filtering:
+
+    - drop empty rows / columns
+    - merge split headers
+    - rename headers
+    - drop empty prices or prices below $1000
+    - drop unidentifiable properties
+    - remove time from timestamp (keep only date)
+    """
+
+    # delete all empty columns & rows
+    df = df.dropna(axis=1, how='all')
+    df = df.dropna(axis=0, how='all')
+        
+    # merge the two headers which are weirdly split over two rows
+    # https://stackoverflow.com/q/44799264/
+    merged_header = df.loc[0].combine_first(df.loc[1])
+    
+    # turn that into a list
+    header_list = merged_header.values.tolist()
+    
+    # hack for 2022 as the sheet has yet again different headers
+    new_header_list = ['application_number', 'kill', 'sale_type',
+                       'kill', 'registration_date', 
+                       'kill', 'kill', 'parish', 'kill', 'parcel_area', 'kill',
+                       'assessment_number_list', 'address', 'kill',
+                       'Mode of\nAcquisition', 'acquisition_date',
+                       'Nature of\nInterest', 'price']
+    
+    
+    
+    # load that list as the new headers for the dataframe
+    # mark for removal with "kill" keyword
+    # remove the top 2 rows with the old headers
+    df.columns = new_header_list
+    df.drop("kill", axis=1, inplace=True) # remove empty columns
+    df.drop(df.index[:2], inplace=True) # remove old headers
+    
+    # Identify the ones with price of ZERO
+    # or with empty or string where the price should be
+    # coerce will convert the string to NaN
+    df ['price'] = pd.to_numeric(df['price'], errors='coerce')
+    # if there were any NaN convert them to zero
+    df = df.replace(np.nan, 0, regex=True)
+    
+    # Remove sales for less $1000
+    # as these are not real sales
+    # and will shift the average values 
+    # these are generally government leases for a symbolic price
+    df = df[df.price >= 1000]
+    
+    # Remove properties which are unidentifiable:
+    # - have no assessment number 
+    # - have assessment number "unknown"
+    
+    df = df.drop(df[(df.address.str.len() < 5) & (df.assessment_number_list == 0)].index)
+    df = df.drop(df[(df.address.str.len() < 5) & (df.assessment_number_list == "Unknown")].index)
+    # - We will preserve addresses with short code like SM-800/1, DE-1886/A, *, etc
+    # matching those addresses to an assessment number and address is not resolved (see Norwood db)
+    
+    # Remove time from the timestamps
+    df['registration_date'] =  pd.to_datetime(df['registration_date'], format='%Y-%m-%d %H:%M:%S.%f').dt.date
+    df.reset_index(drop=True, inplace=True)
+
+    return df
 
 def get_assessment_number(assn_nr):
     '''
