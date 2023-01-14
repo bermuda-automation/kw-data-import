@@ -72,6 +72,11 @@ final_df = df[["application_number", "registration_date", "parish",
 
 final_df.assessment_number_list = final_df.assessment_number_list.apply(LT.get_assessment_number)
 
+# try to find the assessment number or address
+# for properties identified only with their parcel ID (like PA-2037)
+final_df = LT.clean_parcel_id_based_addresses(final_df)
+
+
 final_df.to_csv("./data/kw-sales.csv", index=False)
 
 print("\n >> LTRO DATA IMPORTED << \n")

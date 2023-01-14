@@ -5,6 +5,9 @@ from operator import itemgetter
 import pandas as pd
 import numpy as np
 
+DATA_PATH = "./data/"
+NORWOOD_DATA_PATH = "./data/LTRO/Norwood/"
+
 def clean_ltro_data(df):
     """
     takes a dataframe which has just been imported
@@ -66,7 +69,8 @@ def clean_ltro_data(df):
     df = df.drop(df[(df.address.str.len() < 5) & (df.assessment_number_list == 0)].index)
     df = df.drop(df[(df.address.str.len() < 5) & (df.assessment_number_list == "Unknown")].index)
     # - We will preserve addresses with short code like SM-800/1, DE-1886/A, *, etc
-    # matching those addresses to an assessment number and address is not resolved (see Norwood db)
+    # matching those addresses to assessment numbers or addresses is done by function
+    # clean_parcel_id_based_addresses() below
     
     # Remove time from the timestamps
     df['registration_date'] =  pd.to_datetime(df['registration_date'], format='%Y-%m-%d %H:%M:%S.%f').dt.date
@@ -529,3 +533,87 @@ def simplify_parishes(df):
                                  ["St. George's", "Pembroke"], regex=False)
     return df
         
+
+def clean_parcel_id_based_addresses(df):
+    """
+    Attempts to identify properties which have an address
+    less than 10 char long based on Norwood dataset
+    for example will match: PE-3121 => 3 Jane Doe Lane
+    """
+    dfclean = df.copy(deep=False)
+    nw = pd.read_csv(NORWOOD_DATA_PATH + "parcel_id_assn_nr_database.csv")
+    lv = pd.read_csv(DATA_PATH + "kw-properties.csv")
+
+    addr_matches = []
+    addr_n_assn_nr_matches = []
+    no_match = []
+
+    
+    for df_index, row in dfclean.iterrows():
+        assn_str = str(row.assessment_number_list)
+        addr = str(row.address)
+        # we convert to str as some "0" int are somehow in it.
+        
+        if (len(addr) < 10) and (assn_str != "False"):
+            # address is a parcel ID, but we have the assessment number
+            # find the address in the landvaluation file
+            # 1. sanity check on assessment number format
+            if (assn_str[0:2] == "['") and (assn_str[-2:] == "']"):
+                assn_str = assn_str.strip()
+                # extract assn numbers from string
+                for char in [  "['",   "'",   "']",
+                               '"',    " ",    "[",   "]" ]:  
+                    assn_str = assn_str.replace(char, "")
+                assn_strs = assn_str.split(',')
+                assn_list = [int(x) for x in assn_strs]
+                    # find it in the land valuation (lv dataframe)
+                addresses = ""
+                for j, assn_x in enumerate(assn_list):
+                    addresses += lv[lv.assn_nr == assn_x]["building_name"].values[0]
+                    addresses += ", " + lv[lv.assn_nr == assn_x]["address"].values[0]
+                    if j < len(assn_list)-1:
+                        addresses += " + " # separate multiple addresses
+                        addresses
+                        # print(assn_list, '---->\n', addresses, '\n\n')
+                dfclean.loc[df_index, 'address'] = addresses
+                # keep list of addresses found
+                addr_n_assn_nr_matches.append(addr)
+            else:
+                print("ERROR: Problem extracting assessment number for", row.address)
+        elif (len(addr) < 10) and (addr != "0") and (assn_str == "False"):
+            # address is parcel ID but we don't have an assessment number
+            street_match = nw[nw.parcel_id == row.address].street_address
+
+            if len(street_match) == 1:
+                # the address matches on known parcel_id
+                dfclean.loc[df_index, 'address'] = street_match.iat[0]
+                assn_nr_match = nw[nw.parcel_id == row.address].assn_nr
+                dfclean.loc[df_index, 'assessment_number_list'] = assn_nr_match.iat[0]
+                addr_n_assn_nr_matches.append(addr)
+
+            elif len(street_match) < 1:
+                # no address matches this parcel_id
+                if "/" in addr:
+                    # try again without the part after the slash
+                    street_matches = row.address.split('/')
+                    street_match = nw[nw.parcel_id == street_matches[0]].street_address
+                    # keep the first hit
+                    potential_address = "{} ({})".format(street_match.iat[0], 
+                                                         street_matches[1]) 
+                    dfclean.loc[df_index, 'address'] = street_match.iat[0]
+                    addr_matches.append(addr)
+                else:
+                    # print("####=> nothing found for", row.address)
+                    no_match.append(addr)
+            elif len(street_match) > 1:
+                # several addresses match this parcel_id
+                print("several addresses match this parcel_id. Investigate")
+                print('---------------------->', row.address, street_match)
+                no_match.append(addr)
+
+    print("\nProcessing Parcel_IDs ...\n")
+    print("Address and assessment number found for: ", addr_n_assn_nr_matches)
+    print("Address found for: ", addr_matches)
+    print("No match found for: ", no_match, "\n")
+    # and print it with friendly message
+    return dfclean
