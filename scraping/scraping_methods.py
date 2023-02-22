@@ -12,7 +12,7 @@ import pandas as pd
 
 def init_browser(url):
     mycwd = os.getcwd()
-    executable_path = {'executable_path' : mycwd + '/chromedriver_108'}
+    executable_path = {'executable_path' : mycwd + '/chromedriver_110'}
     # print(executable_path)
     # I did chmod +x the driver, works for version 106 of chrome
     # make sure to pip install splinter[selenium4]
