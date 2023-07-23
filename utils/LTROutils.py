@@ -167,7 +167,7 @@ def identify_land_house_condo(df):
     '''
     land_keywords = ["vacant lot", "lot of land", "land on", "lot", "land lying", 
                  "land situate", "land situated", "share in land", "government land"]
-    land_anti_keywords = ["fairyland lane", "fruitland lane", "camelot", "jiblot"] # not lands
+    land_anti_keywords = ["fairyland lane", "fruitland lane", "camelot", "jiblot", "treslot"] # not lands
 
     # not terribly efficient, but ok for small dataset
     for index, row in df.iterrows():
