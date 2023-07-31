@@ -12,13 +12,15 @@ import pandas as pd
 
 def init_browser(url):
     mycwd = os.getcwd()
-    executable_path = {'executable_path' : mycwd + '/chromedriver_110'}
+    # executable_path = {'executable_path' : mycwd + '/chrome-linux64/chrome'} # chromedriver_110'}
+    executable_path = {'executable_path' : mycwd + '/edgedriver'}
     # print(executable_path)
     # I did chmod +x the driver, works for version 106 of chrome
     # make sure to pip install splinter[selenium4]
     # so that selenium can drive the browser
-    browser = Browser('chrome', **executable_path)
-    
+    # browser = Browser('chrome', **executable_path)
+    browser = Browser('edge' , **executable_path)
+
     # Open Site
     browser.visit(url)
     browser.driver.maximize_window()  # full screen to view all menus
@@ -36,7 +38,7 @@ def get_parish_data(browser):
     
         time.sleep(2)
     
-        while browser.is_element_visible_by_css('img[src="Assets/images/search_ani2.gif"]'):
+        while browser.find_by_css('img[src="Assets/images/search_ani2.gif"]').is_visible(None):
             time.sleep(5)
             print('waiting for ' + parish)
     

@@ -55,6 +55,7 @@ print(to_process, " rows processed for duplicates")
 lv = pd.read_csv("./data/kw-properties.csv")
 df = LT.add_arv_to_ltro(df,lv)
 
+
 # improve sales property type data
 df = LT.clean_property_type(df, lv)
 
@@ -75,7 +76,8 @@ final_df.assessment_number_list = final_df.assessment_number_list.apply(LT.get_a
 # try to find the assessment number or address
 # for properties identified only with their parcel ID (like PA-2037)
 final_df = LT.clean_parcel_id_based_addresses(final_df)
-
+# Revisit sales data to improve property type
+final_df = LT.clean_property_type(final_df, lv)
 
 final_df.to_csv("./data/kw-sales.csv", index=False)
 

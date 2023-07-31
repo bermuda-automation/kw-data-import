@@ -88,9 +88,9 @@ def get_assessment_number(assn_nr):
     will return False.
     '''
     assn_nr = str(assn_nr).strip()
-    if len(assn_nr) < 8:
+    if len(assn_nr) < 7:
         return False
-    if (len(assn_nr) == 8) or (len(assn_nr) == 9):
+    if (len(assn_nr) == 7) or (len(assn_nr) == 8) or (len(assn_nr) == 9):
         try:
             int(assn_nr)
             return [assn_nr]
@@ -99,10 +99,13 @@ def get_assessment_number(assn_nr):
             return False
     if len(assn_nr) > 9:
         # it may be a list of assessment numbers
-        # remove "&" or "and" from the lists
+        # remove "&" or "and" and other symbols from the lists
         assn_nr = assn_nr.replace(", and", ",")
         assn_nr = assn_nr.replace(",and", ",")
         assn_nr = assn_nr.replace("&", ",")
+        assn_nr = assn_nr.replace("[", "")
+        assn_nr = assn_nr.replace("]", "")
+        assn_nr = assn_nr.replace("'","") 
         list_of_ass_nr = assn_nr.split(",")
         if len(list_of_ass_nr) <= 1:
             # not a list of assessment numbers
@@ -115,7 +118,11 @@ def get_assessment_number(assn_nr):
             assn_nr_clean = [get_assessment_number(x) for x in clean_list]
             # keep list elements that are not false
             an_list = [x[0] for x in assn_nr_clean if x]
-            return an_list
+            if len(an_list) == 0:
+                # did we end up with an empty list?
+                return False
+            else:
+                return an_list
 
 
 def identify_fractionals(df):
@@ -167,7 +174,7 @@ def identify_land_house_condo(df):
     '''
     land_keywords = ["vacant lot", "lot of land", "land on", "lot", "land lying", 
                  "land situate", "land situated", "share in land", "government land"]
-    land_anti_keywords = ["fairyland lane", "fruitland lane", "camelot", "jiblot", "treslot"] # not lands
+    land_anti_keywords = ["fairyland lane", "fruitland lane", "camelot", "jiblot", "treslot", "3 Scenic Lane"] # not lands
 
     # not terribly efficient, but ok for small dataset
     for index, row in df.iterrows():
@@ -391,7 +398,11 @@ def clean_property_type(df, lv):
             elif row.property_type == 0 and len(p_types) > 0:
                 # if there's nothing, keep the first one from land valuation
                 df.loc[index, 'property_type'] = p_types[0]
-    
+            elif len(p_types) == 0:
+                # no matching assessment numbers found in land valuation
+                # thus the p_types list is empty.
+                df.loc[index,'property_type'] = False
+
     return df   
         
 
