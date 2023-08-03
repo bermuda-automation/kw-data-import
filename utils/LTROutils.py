@@ -74,6 +74,7 @@ def clean_ltro_data(df):
     
     # Remove time from the timestamps
     df['registration_date'] =  pd.to_datetime(df['registration_date'], format='%Y-%m-%d %H:%M:%S.%f').dt.date
+    # experimental:
     df.reset_index(drop=True, inplace=True)
 
     return df
@@ -174,7 +175,7 @@ def identify_land_house_condo(df):
     '''
     land_keywords = ["vacant lot", "lot of land", "land on", "lot", "land lying", 
                  "land situate", "land situated", "share in land", "government land"]
-    land_anti_keywords = ["fairyland lane", "fruitland lane", "camelot", "jiblot", "treslot", "3 Scenic Lane"] # not lands
+    land_anti_keywords = ["fairyland lane", "fruitland lane", "camelot", "jiblot", "treslot", "3 scenic lane"] # not lands
 
     # not terribly efficient, but ok for small dataset
     for index, row in df.iterrows():
@@ -269,8 +270,18 @@ def process_duplicates(df):
                     # only keep rows without words like "Unknown"
                     unknowns = duplis_subset.assessment_number_list.tolist()
                     unknowns = list(map(lambda x: str(x).lower(), unknowns))
-                    index_unknown = unknowns.index("unknown")
-                    to_delete = [dupli_indx[index_unknown]]
+                    # in which position of our diplicates subset is the unkown assessment number?
+                    if 'unknown' in unknowns:
+                        print('\nHERE TOO', unknowns)
+                        index_unknown = unknowns.index("unknown")
+                        to_delete = [dupli_indx[index_unknown]]
+                    elif '0' in unknowns:
+                        index_unknown = unknowns.index("0")
+                        to_delete = [dupli_indx[index_unknown]]
+                    else:
+                        # Are there missing cases with other "unknown" words?
+                        print('MISSING ASS NR: ', an, unknowns)
+                    
                     # delete rows with some unknown assessment number
                     marked_for_delete.extend(to_delete)
 
@@ -608,11 +619,15 @@ def clean_parcel_id_based_addresses(df):
                     # try again without the part after the slash
                     street_matches = row.address.split('/')
                     street_match = nw[nw.parcel_id == street_matches[0]].street_address
-                    # keep the first hit
-                    potential_address = "{} ({})".format(street_match.iat[0], 
-                                                         street_matches[1]) 
-                    dfclean.loc[df_index, 'address'] = street_match.iat[0]
-                    addr_matches.append(addr)
+                    if len(street_match) == 1:
+                        # the address without "/" matches a known parcel_id
+                        # keep the first hit
+                        potential_address = "{} ({})".format(street_match.iat[0], 
+                                                            street_matches[1]) 
+                        dfclean.loc[df_index, 'address'] = street_match.iat[0]
+                        addr_matches.append(addr)
+                    elif len(street_match) > 1:
+                        print('Multiple Matches from Norwood:', street_match)
                 else:
                     # print("####=> nothing found for", row.address)
                     no_match.append(addr)

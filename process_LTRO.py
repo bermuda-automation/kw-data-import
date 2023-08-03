@@ -18,14 +18,19 @@ latest_LTRO_data = "./data/LTRO/LTRO_2022.xlsx"
 
 df = pd.read_excel(recent_LTRO_data, header=None, skiprows=9)
 older_ltro = pd.read_csv(old_processed_LTRO_data)
-dflast =  pd.read_excel(recent_LTRO_data, header=None, skiprows=9)
+dflast =  pd.read_excel(latest_LTRO_data, header=None, skiprows=9)
+
 
 df = LT.clean_ltro_data(df)
 dflast = LT.clean_ltro_data(dflast)
 
 
 df = pd.concat([older_ltro, df, dflast])
+df['registration_date'] =  pd.to_datetime(df['registration_date'], format='%Y-%m-%d').dt.date
 df.reset_index(drop=True, inplace=True)
+
+
+print('MAX DATE: ', df.registration_date.max())
 
 # a new columns called "property_type"
 # is defined. It will contain either
