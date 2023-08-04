@@ -272,7 +272,6 @@ def process_duplicates(df):
                     unknowns = list(map(lambda x: str(x).lower(), unknowns))
                     # in which position of our diplicates subset is the unkown assessment number?
                     if 'unknown' in unknowns:
-                        print('\nHERE TOO', unknowns)
                         index_unknown = unknowns.index("unknown")
                         to_delete = [dupli_indx[index_unknown]]
                     elif '0' in unknowns:

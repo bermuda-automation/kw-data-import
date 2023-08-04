@@ -5,7 +5,6 @@ import pandas as pd
 
 import utils.LTROutils as LT
 import utils.landvalutils as LAV
-from thefuzz import fuzz
 
 # Have new properties been added by scraping?
 # If so, add them to the latest_landvaluation_data.csv file
