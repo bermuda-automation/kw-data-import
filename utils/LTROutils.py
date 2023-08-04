@@ -294,7 +294,7 @@ def process_duplicates(df):
 
             # mark duplicates group as processed:
             processed_rows.extend(dupli_indx)
-
+    
     df = df.drop(marked_for_delete)
     return df
 

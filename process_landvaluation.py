@@ -1,13 +1,27 @@
+import glob
+import os
 import csv
 import pandas as pd
 
 import utils.LTROutils as LT
+import utils.landvalutils as LAV
+from thefuzz import fuzz
+
+# Have new properties been added by scraping?
+# If so, add them to the latest_landvaluation_data.csv file
+# concatenate the two csv files and then remove duplicates
+
+files_from_scraping = glob.glob('./scraping/*.csv') 
+last_scraped_data = max(files_from_scraping, key=os.path.getctime)
+
 
 latest_lv_data = "./data/landvaluation/latest_landvaluation_data.csv"
 
-# Import
-df = pd.read_csv(latest_lv_data)
+# Import both files and concatenate them
+df = pd.concat([pd.read_csv(latest_lv_data), pd.read_csv(last_scraped_data)], ignore_index=True)
 
+
+df = df.drop_duplicates()
 ##### change to lower
 df["property_type"] = df["property_type"].str.lower().str.strip()
 df["tax_code"] = df["tax_code"].str.lower().str.strip()
@@ -35,6 +49,10 @@ df2.arv = df2.arv.map(lambda x: int(x.replace(',','').replace('$','')))
 dfarv = df2.drop_duplicates(subset=['assn_nr'], keep=False)
 if df2.shape[0] != dfarv.shape[0]:
     print("WARNING, THERE SEEM TO BE DUPLICATE ASSESSMENT NUMBERS")
+    print("processing duplicates with similar building name:")
+    df2 = LAV.process_and_merge_duplicates(df2)
+    print("\n Nr of unique assessment numbers: ", df2.shape[0], "[OK]\n")    
+    
 else:
     print("# of unique assessment numbers: ", df2.shape[0], "[OK]")    
 # Inspect ARV range
