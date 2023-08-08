@@ -11,7 +11,14 @@ import numpy as np
 import utils.LTROutils as LT
 
 
-# parameters:
+#  Importing data from LTRO has the following steps:
+# 1. Define files received from LTRO
+# 2. Clean files (clean & rename columns, delete empty rows, remove anomalous sales)
+# 3. use standard property_type
+# 4. process duplicates
+# 5. use standard parishes
+
+# 1. Files from LTRO:
 recent_LTRO_data = "./data/LTRO/LTRO_2018_2022.xlsx"
 old_processed_LTRO_data = "./data/LTRO/LTRO_2018.csv"
 latest_LTRO_data = "./data/LTRO/LTRO_2022.xlsx"
@@ -20,7 +27,7 @@ df = pd.read_excel(recent_LTRO_data, header=None, skiprows=9)
 older_ltro = pd.read_csv(old_processed_LTRO_data)
 dflast =  pd.read_excel(latest_LTRO_data, header=None, skiprows=9)
 
-
+# 2. Clean Files
 df = LT.clean_ltro_data(df)
 dflast = LT.clean_ltro_data(dflast)
 
@@ -30,15 +37,20 @@ df['registration_date'] =  pd.to_datetime(df['registration_date'], format='%Y-%m
 df.reset_index(drop=True, inplace=True)
 
 
-print('MAX DATE: ', df.registration_date.max())
+print('\n{} sales imported between dates: {} and {} \n'.format(df.shape[0], 
+                                                               df.registration_date.min(), 
+                                                               df.registration_date.max()))
 
-# a new columns called "property_type"
+# 3. a new columns called "property_type"
 # is defined. It will contain either
-# "fractional", "land" or "0" otherwise
+# "fractional", "land", "house", "condo" or False
 df = LT.identify_fractionals(df)
-df = LT.identify_land_house_condo(df)
+df = LT.identify_lands(df)
+df = LT.identify_houses(df)
+df = LT.identify_condos(df)
 
-# Remove Duplicates
+
+# 4. Remove Duplicates
 LTRO_entries = df.shape[0]
 df = df.drop_duplicates(subset=['application_number','registration_date', 
                                 'acquisition_date',
@@ -64,8 +76,9 @@ df = LT.add_arv_to_ltro(df,lv)
 # improve sales property type data
 df = LT.clean_property_type(df, lv)
 
-# keep only properties such that the sales price is more than 3 years of rent.
-df = df[~(df['combined_arv']*3 >= df['price'])] #  & (df.property_type != 'fractional')]
+# Sanity check:
+# keep only properties such that the sales price is more than 2 years of rent.
+df = df[~(df['combined_arv']*2 >= df['price'])] #  & (df.property_type != 'fractional')]
 
 df = LT.clean_area(df)
 df = LT.simplify_parishes(df)

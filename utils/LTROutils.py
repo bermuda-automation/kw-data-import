@@ -125,12 +125,25 @@ def get_assessment_number(assn_nr):
             else:
                 return an_list
 
-
+def _in_keywords(x, keywords):
+    '''
+    Check if any of the keywords are in string x
+    - False if it's nan
+    - False if value is 0 or "0"
+    - True if x can be found in any of the keywords
+    '''
+    if pd.isnull(x):
+        return False
+    if x == 0 or x == "0":
+        return False
+    else:
+        return any([keyword in x for keyword in keywords])
+            
 def identify_fractionals(df):
     '''
     identify which rows correspond to sales of fractional properties.
     These will contain certain keywords and have no assessment number
-    input: dataframe (note: must already contain column "property_type")
+    input: dataframe (note: must not contain column "property_type" yet)
     output: dataframe
     '''
     usual_fractions = [f"1/{n} th" for n in range(2,21)]+[f"1/{n}th" for n in range(2,21)]
@@ -140,79 +153,116 @@ def identify_fractionals(df):
                     # last 3 numbers are the assess_nr of compounds with lots of apartments
                     # like Newstead Belmont Hills, the Reefs, Harbour Court, Tucker's Point
     fractional_keywords = fractional_keywords + usual_fractions
+
+    mode_condition = df['Mode of\nAcquisition'].str.lower().apply(lambda x: _in_keywords(x, fractional_keywords))
+    ass_nr_condition = df['assessment_number_list'].str.lower().apply(lambda x: _in_keywords(x, fractional_keywords))
+    addr_condition =  df['address'].str.lower().apply(lambda x: _in_keywords(x, fractional_keywords))
+    type_condition =  df['Nature of\nInterest'].str.lower().apply(lambda x: _in_keywords(x, fractional_keywords))
+
+    df['property_type'] = ( mode_condition | ass_nr_condition | addr_condition | type_condition )
+    # if it's found to be fractional then make sure the property_type is fractional
+    df.loc[df.property_type == True, 'property_type'] = 'fractional'
     
-    # not terribly efficient, but ok for small dataset
-    property_type_list = []
-    
-    for index, row in df.iterrows():
-        match_assn = any(x for x in fractional_keywords if x in str(row["assessment_number_list"]).lower())
-        match_addr = any(x for x in fractional_keywords if x in str(row["address"]).lower())
-        match_nintr = any(x for x in fractional_keywords if x in str(row["Nature of\nInterest"]).lower())    
-  
-        if match_assn or match_addr or match_nintr:
-            # some properties may be mis-identified
-            # if they have assessment number different from the above
-            # but contain fraction keywords.  Optimization for another day.
-            if "vacant lot" not in str(row.assessment_number_list).lower():
-                # catch lands which are not fractionals
-                property_type_list.append("fractional")
-            else:
-                property_type_list.append(0)
-        else:
-            property_type_list.append(0)
-    df['property_type'] = property_type_list
+    # if it's found to be fractional then make sure the assessment_number is zero.
+    # since fractional properties don't have assessment numbers
+    df.loc[df.property_type == 'fractional', 'assessment_number'] = 0
+
     return df
 
 
-
-        
-def identify_land_house_condo(df):
+def identify_lands(df):
     '''
-    identify which rows correspond to sales of lands which
-    will contain certain keywords and have no assessment number
-    input: dataframe (note: must already contain column "property_type")
+    Identify which rows correspond to sales of lands
+    because they contain certain keywords and have no assessment number
+    This function must follow identify_fractionals
+    input: dataframe (note: must contain column "property_type".
     output: dataframe
     '''
     land_keywords = ["vacant lot", "lot of land", "land on", "lot", "land lying", 
                  "land situate", "land situated", "share in land", "government land"]
     land_anti_keywords = ["fairyland lane", "fruitland lane", "camelot", "jiblot", "treslot", "3 scenic lane"] # not lands
 
-    # not terribly efficient, but ok for small dataset
-    for index, row in df.iterrows():
-        assn_nr = str(row['assessment_number_list']).lower()
-        addr = str(row['address']).lower()
-        mode = str(row['Mode of\nAcquisition']).lower()
-        nature = str(row['Nature of\nInterest']).lower()
-        
-        match_assn = any(x for x in land_keywords if x in assn_nr)
-        match_addr = any(x for x in land_keywords if x in addr)
-        
-        
-        if row["property_type"] == 0:
-            # not a fractional property
-            an = get_assessment_number(row["assessment_number_list"])
-            if (match_assn or match_addr):
-                # has land keywords
-                if not an: # has no assessment nr (thus probably land)
-                    # update property type
-                    df.loc[index,'property_type'] = 'land'
-            elif ('leaseholder' in nature) and (("lower" in addr) or ("apartment" in addr) or ("unit" in addr)):
-                    df.loc[index,'property_type'] = 'condo'
-            elif ('condos' in addr) and ('unit' in addr):
-                if an: # has assessment number
-                    df.loc[index,'property_type'] = 'condo'
-            elif ('conveyance' in mode or 'coveyance' in mode) and ('lease' not in mode):
-                    df.loc[index,'property_type'] = 'house'
-            elif ('lease' in mode or 'leashold' in mode) and 'conveyance' not in mode:    
-                    df.loc[index,'property_type'] = 'condo'
-            elif ('lease' in mode) and an:
-                # one of the LTRO items has a contradiction
-                # containing both 'lease' and 'conveyance'
-                # assume condo
-                list_of_property_types.append('condo')
-    
+    df['address'] = df['address'].fillna('')
+    df['assessment_number_list'] = df['assessment_number_list'].fillna('')
+
+    # Creating conditions for both the keywords and anti-keywords
+    keyword_conditions = df['address'].str.lower().apply(lambda x: _in_keywords(x, land_keywords))
+    keyword_conditions_assn_nr = df['assessment_number_list'].str.lower().apply(lambda x: _in_keywords(x, land_keywords))
+
+    anti_keyword_conditions = df['address'].str.lower().apply(lambda x: not _in_keywords(x, land_anti_keywords))
+    anti_keyword_conditions_assn_nr = df['assessment_number_list'].str.lower().apply(lambda x: not _in_keywords(x, land_anti_keywords))
+
+    # Applying both conditions
+    df['new_lands'] = (keyword_conditions | keyword_conditions_assn_nr)  & \
+                      (anti_keyword_conditions & anti_keyword_conditions_assn_nr)
+
+    df.loc[df.new_lands == True, 'property_type'] = 'land'
+    # if it's found to be a land then make sure the assessment_number is zero
+    # since lands don't have assessment numbers
+    df.loc[df.new_lands == True, 'assessment_number'] = 0
+
+    df = df.drop('new_lands', axis=1)
     return df
 
+
+def identify_houses(df):
+    '''
+    identify which rows correspond to sales of house or condo
+    based on certain keywords
+    input: dataframe (note: must already contain column "property_type")
+    output: dataframe
+    '''
+
+    house_keywords = ["conveyance", "coveyance"]
+    condo_keywords = ["lease", "leashold", "leaseholder", "lese", "leasehodler"]
+    condo_addr_keywords = ["lower", "apartment", "unit", "apt.", "apt"]
+    
+    house_keyword_conditions = df['Mode of\nAcquisition'].str.lower().apply(lambda x: _in_keywords(x, house_keywords))
+    house_anti_keyword_conditions = df['Mode of\nAcquisition'].str.lower().apply(lambda x: not _in_keywords(x, condo_keywords))
+    house_anti_keyword_conditions_addr = df['address'].str.lower().apply(lambda x: not _in_keywords(x, condo_addr_keywords))
+
+    # a series of True / False depending on if satisfies the conditions to be a house:
+    # (has keywords of a house) AND (does not have keywords of a condo) AND (is not fractional)
+    df['new_houses'] = (house_keyword_conditions) & \
+                       (house_anti_keyword_conditions | house_anti_keyword_conditions_addr) & \
+                       (df['property_type'] != 'fractional')
+                       
+    df.loc[df.new_houses == True, 'property_type'] = 'house'
+
+    # delete temporary column
+    df = df.drop('new_houses', axis=1)
+    return df
+
+def identify_condos(df):
+    '''
+    identify which rows correspond to sales of a condo
+    based on certain keywords
+    input: dataframe (note: must already contain column "property_type")
+    output: dataframe
+    '''
+
+    condo_keywords = ["lease", "leashold", "leaseholder", "lese", "leasehodler", "assignment"]
+    condo_addr_keywords = ["lower", "apartment", "unit", "apt.", "apt"]
+    house_keywords = ["conveyance", "coveyance"]
+    
+    condo_keyword_conditions = df['Mode of\nAcquisition'].str.lower().apply(lambda x: _in_keywords(x, condo_keywords))
+    condo_keyword_addr_conditions = df['address'].str.lower().apply(lambda x: _in_keywords(x, condo_addr_keywords))
+    condo_anti_keyword_conditions = df['Mode of\nAcquisition'].str.lower().apply(lambda x: not _in_keywords(x, house_keywords))
+
+
+    # a series of True / False depending on if satisfies the conditions to be a condo:
+    # (has keywords of a house) AND (does not have keywords of a house) AND (is not fractional)
+    df['new_condos'] = (condo_keyword_conditions | condo_keyword_addr_conditions) & \
+                       (condo_anti_keyword_conditions) & \
+                       (df['property_type'] != 'fractional')
+                       
+    df.loc[df.new_condos == True, 'property_type'] = 'condo'
+
+    # delete temporary column
+    df = df.drop('new_condos', axis=1)
+    return df
+
+    
 
 def process_duplicates(df):
     
@@ -255,6 +305,7 @@ def process_duplicates(df):
                 # mark duplicates for deletion
                 marked_for_delete.extend(dupli_indx[1:])
 
+            # 2. Not all have assn_nr
             if has_missing_ass_nr:
                 # some assessment nr missing
 
@@ -270,7 +321,7 @@ def process_duplicates(df):
                     # only keep rows without words like "Unknown"
                     unknowns = duplis_subset.assessment_number_list.tolist()
                     unknowns = list(map(lambda x: str(x).lower(), unknowns))
-                    # in which position of our diplicates subset is the unkown assessment number?
+                    # in which position of our duplicates subset is the unkown assessment number?
                     if 'unknown' in unknowns:
                         index_unknown = unknowns.index("unknown")
                         to_delete = [dupli_indx[index_unknown]]
