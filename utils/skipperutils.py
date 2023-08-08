@@ -218,19 +218,19 @@ def _address_filter(df):
     landvaluation database which has accurate addresses.
     if a flag already exists, then append this new one to it.
     """
-    if df["property_type"] == "land" and len(df["name"]) < 20:
+    if df["property_type"] == "land" and len(df["name"]) < 12:
         # land wont have assessment number to locate it, so a short address is insufficient
         return "ADDRESS"
     elif df["property_type"] == "fractional" and not contains_number(df["name"]):
         # fractional won't have assessment number, and an address without number is unlikely to be good
         return "ADDRESS"
-    elif df["property_type"] == "fractional" and len(df["name"]) < 20:
+    elif df["property_type"] == "fractional" and len(df["name"]) < 12:
         return "ADDRESS"
-    elif not df["assessment_number"] and ((len(df["name"]) < 20) or not contains_number(df["name"])):
+    elif not df["assessment_number"] and ((len(df["name"]) < 12) or not contains_number(df["name"])):
         return "ADDRESS"
     elif (len(str(df.assessment_number)) == 8) or (len(str(df.assessment_number)) == 9):
         return ""
-    elif len(df["name"]) < 20: 
+    elif len(df["name"]) < 12: 
         return "ADDRESS" # Address seems too short
     elif not contains_number(df["name"]):
         return "ADDRESS"
