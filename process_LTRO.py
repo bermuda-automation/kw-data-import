@@ -80,7 +80,10 @@ df = LT.clean_property_type(df, lv)
 # keep only properties such that the sales price is more than 2 years of rent.
 df = df[~(df['combined_arv']*2 >= df['price'])] #  & (df.property_type != 'fractional')]
 
+# create a column with surface area in hectares
 df = LT.clean_area(df)
+
+# 5. Use standard parishes
 df = LT.simplify_parishes(df)
 
 # Save to CSV
