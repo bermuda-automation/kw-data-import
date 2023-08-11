@@ -10,7 +10,7 @@ def process_and_merge_duplicates(df):
     when considering assessment number and address.
     '''
 
-    all_duplicates = df[df.duplicated(subset=['assn_nr', 'address'] )]
+    all_duplicates = df[df.duplicated(subset=['assessment_number', 'address'] )]
     print(all_duplicates.shape[0], "partial duplicates found")
 
     if len(all_duplicates) == 0:
@@ -21,12 +21,12 @@ def process_and_merge_duplicates(df):
     duplicates_to_delete = []
     for k, adupe in all_duplicates.iterrows():
         # get a small dataframe with the duplicates matching the current row
-        matches = df[df.assn_nr == adupe.assn_nr ]
+        matches = df[df.assessment_number == adupe.assessment_number ]
         # save the name of the building which has a partial match
         build_name = matches.building_name_low.values[0]
         # save the index of the row to delete (if they are similar)
         index_to_delete = df.index[(df['building_name_low'] == build_name) & \
-                                    (df.assn_nr == adupe.assn_nr)].tolist()
+                                    (df.assessment_number == adupe.assessment_number)].tolist()
         similarity_ratio = fuzz.ratio(matches.building_name_low.values[0],
                                       matches.building_name_low.values[1])
         # we assume duplicates are only two

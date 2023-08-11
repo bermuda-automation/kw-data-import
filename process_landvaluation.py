@@ -53,7 +53,7 @@ df2.arv = df2.arv.map(lambda x: int(x.replace(',','').replace('$','')))
 
 ##### Sanity checks
 # Check for Duplicates
-dfarv = df2.drop_duplicates(subset=['assn_nr'], keep=False)
+dfarv = df2.drop_duplicates(subset=['assessment_number'], keep=False)
 if df2.shape[0] != dfarv.shape[0]:
     print("WARNING, THERE SEEM TO BE DUPLICATE ASSESSMENT NUMBERS")
     print("processing duplicates with similar building name:")
@@ -76,7 +76,7 @@ else:
 df2 = LT.simplify_parishes(df2)
 
 # Select columns of interest    
-df_for_export = df2[["assn_nr","arv","tax_code","property_type", "address", "grid", "parish", "building_name"]]
+df_for_export = df2[["assessment_number","arv","tax_code","property_type", "address", "grid", "parish", "building_name"]]
 # save to CSV
 df_for_export.to_csv("./data/kw-properties.csv", index=False)
 
