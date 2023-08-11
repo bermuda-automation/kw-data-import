@@ -54,17 +54,17 @@ def get_parish_data(browser):
 
 def process_landval_data():
     # The dataframe where we will save all the data
-    result = pd.DataFrame(columns=['assn_nr', 'arv', 'tax_code', 'property_type', 'address', 'grid', 'parish', 'building_name'])
+    result = pd.DataFrame(columns=['assessment_number', 'arv', 'tax_code', 'property_type', 'address', 'grid', 'parish', 'building_name'])
 
     # what is the position of each piece of information
     # on the table with the results?
-    landval_info_position = {0: 'assn_nr', 1:'arv', 2: 'Historic_ARVs', 3: 'tax_code', 4: 'property_type', 5: 'building_name', 6: 'address', 7: 'grid'}
+    landval_info_position = {0: 'assessment_number', 1:'arv', 2: 'Historic_ARVs', 3: 'tax_code', 4: 'property_type', 5: 'building_name', 6: 'address', 7: 'grid'}
 
     tmp_dir = "./tmp_data/"
     directory_list = os.listdir(tmp_dir)
 
     today = datetime.today()
-    outfile = '{}-{}-{}_landvaluation_data.csv'.format(today.year, today.month, today.day)
+    outfile = '{}-{:02d}-{:02d}_landvaluation_data.csv'.format(today.year, today.month, today.day)
 
     nr_processed_so_far = 0
     for parish_table in directory_list:
