@@ -1,5 +1,6 @@
 # functions for cleaning up LTRO data
 import decimal
+import re
 from operator import itemgetter
 
 import pandas as pd
@@ -65,15 +66,18 @@ def clean_ltro_data(df):
     # Remove properties which are unidentifiable:
     # - have no assessment number 
     # - have assessment number "unknown"
-    
-    df = df.drop(df[(df.address.str.len() < 5) & (df.assessment_number_list == 0)].index)
-    df = df.drop(df[(df.address.str.len() < 5) & (df.assessment_number_list == "Unknown")].index)
+
+    df = df.drop(df[(df.address.str.len() <= 4) & (df.assessment_number_list == 0)].index)
+    df = df.drop(df[(df.address.str.len() <= 4) & (df.assessment_number_list == "Unknown")].index) 
     # - We will preserve addresses with short code like SM-800/1, DE-1886/A, *, etc
+    # The shortest example is SG-09, thus the limit of 4 characters
     # matching those addresses to assessment numbers or addresses is done by function
     # clean_parcel_id_based_addresses() below
     
     # Remove time from the timestamps
     df['registration_date'] =  pd.to_datetime(df['registration_date'], format='%Y-%m-%d %H:%M:%S.%f').dt.date
+    
+    
     # experimental:
     df.reset_index(drop=True, inplace=True)
 
@@ -89,28 +93,31 @@ def get_assessment_number(assn_nr):
     will return False.
     '''
     assn_nr = str(assn_nr).strip()
-    if len(assn_nr) < 7:
-        return False
-    if (len(assn_nr) == 7) or (len(assn_nr) == 8) or (len(assn_nr) == 9):
+    if len(assn_nr) < 8:
+        return 0
+    elif (len(assn_nr) == 8) or (len(assn_nr) == 9):
         try:
             int(assn_nr)
-            return [assn_nr]
+            if len(assn_nr) == 8:
+                # is missing the trailing zero
+                return ["0" + assn_nr]
+            else:
+                return [assn_nr]
         except:
             # it was not a number
-            return False
-    if len(assn_nr) > 9:
+            return 0
+    elif len(assn_nr) > 9:
         # it may be a list of assessment numbers
         # remove "&" or "and" and other symbols from the lists
+        
+        assn_nr = assn_nr.replace('b','').replace('[','').replace(']','').replace("'","").strip()
         assn_nr = assn_nr.replace(", and", ",")
         assn_nr = assn_nr.replace(",and", ",")
         assn_nr = assn_nr.replace("&", ",")
-        assn_nr = assn_nr.replace("[", "")
-        assn_nr = assn_nr.replace("]", "")
-        assn_nr = assn_nr.replace("'","") 
         list_of_ass_nr = assn_nr.split(",")
         if len(list_of_ass_nr) <= 1:
             # not a list of assessment numbers
-            return False
+            return 0
         else:
             # process list of assessment numbers
             # remove empty space
@@ -169,7 +176,6 @@ def identify_fractionals(df):
 
     return df
 
-
 def identify_lands(df):
     '''
     Identify which rows correspond to sales of lands
@@ -203,7 +209,6 @@ def identify_lands(df):
 
     df = df.drop('new_lands', axis=1)
     return df
-
 
 def identify_houses(df):
     '''
@@ -261,9 +266,7 @@ def identify_condos(df):
     # delete temporary column
     df = df.drop('new_condos', axis=1)
     return df
-
     
-
 def process_duplicates(df):
     
     duplis = df[df['application_number'].duplicated(keep=False)]
@@ -348,7 +351,6 @@ def process_duplicates(df):
     df = df.drop(marked_for_delete)
     return df
 
-
 def find_combined_arv(arv_list):
     '''
     Some sales are for the sale of two or more properties, each with their own ARV.
@@ -369,7 +371,6 @@ def find_combined_arv(arv_list):
             arv_list = 0
         return arv_list
 
-
 def add_arv_to_ltro(df, lv):
     '''
     input: 
@@ -386,13 +387,13 @@ def add_arv_to_ltro(df, lv):
         an = get_assessment_number(row.assessment_number_list)
         if an and len(an) == 1: # single assessment number
             try:
-                arv = lv[lv.assn_nr == int(an[0])].arv.values
+                arv = lv[lv.assessment_number == int(an[0])].arv.values
             except:
                 arv = [0]
             # keep arvs (should be just 1) where something was found
             if len(arv) == 1: 
                 arvs_for_ltro.extend(arv)
-            elif len(arvs) >=1: 
+            elif len(arv) >=1: 
                 # this shouldn't happen (more than 1 ARV for a single Ass. Nr.)
                 # but just in case
                 arvs_for_ltro.append(arv)
@@ -400,7 +401,7 @@ def add_arv_to_ltro(df, lv):
                 arvs_for_ltro.append(0)
         elif an and len(an) > 1: # Multiple assessment numbers
             # get ARVs from landvaluation that match those in LTRO
-            arvs = [lv[lv.assn_nr == int(x)].arv for x in an]
+            arvs = [lv[lv.assessment_number == int(x)].arv for x in an]
             # get the value from the dataframe (if it was found, i.e. len(x) > 0)
             arvs = [x.values for x in arvs if len(x) > 0]
             # for example these are not found: ['123075017', '123075211', '123076013', '129077010']
@@ -419,7 +420,6 @@ def add_arv_to_ltro(df, lv):
     df['combined_arv'] = df.arv.map(lambda x : find_combined_arv(x))
     return df
 
-
 def clean_property_type(df, lv):
     '''
     Uses land valuation data (more reliable)
@@ -434,7 +434,7 @@ def clean_property_type(df, lv):
         an = get_assessment_number(row.assessment_number_list)
         if an and len(an) == 1:
             try:
-                p_type = lv[lv.assn_nr == int(an[0])].property_type.values
+                p_type = lv[lv.assessment_number == int(an[0])].property_type.values
                 if p_type.size == 0:
                     p_type == False
             except:
@@ -445,7 +445,7 @@ def clean_property_type(df, lv):
                     df.loc[index,'property_type'] = p_type[0]
         elif an and len(an) > 1: # Multiple assessment numbers
             # get property_types from landvaluation that match those in LTRO
-            p_types = [lv[lv.assn_nr == int(x)].property_type for x in an]
+            p_types = [lv[lv.assessment_number == int(x)].property_type for x in an]
             # get the value from the dataframe (if it was found, i.e. len(x) > 0)
             p_types = [x.values[0] for x in p_types if len(x) > 0]
             p_types = list(set(p_types)) # keep unique values
@@ -465,11 +465,6 @@ def clean_property_type(df, lv):
                 df.loc[index,'property_type'] = False
 
     return df   
-        
-
-
-
-
 
 def clean_area(df):
     # clean_area
@@ -525,8 +520,6 @@ def clean_area(df):
     df['parcel_area_ha'] = unified_area
     return df
 
-
-
 def nr_of_decimals(x):
     '''
     returns the number of decimals in a float:
@@ -535,7 +528,6 @@ def nr_of_decimals(x):
     '''
     d = decimal.Decimal(x)
     return -d.as_tuple().exponent
-
 
 def smtm(x, show_decimals=False):
     ''' Show me the money!
@@ -549,7 +541,6 @@ def smtm(x, show_decimals=False):
             return "${:,.0f}".format(x)
     else:
         return "${:,.0f}".format(x)
-
 
 def get_units(area_string):
     '''
@@ -601,20 +592,37 @@ def simplify_parishes(df):
     - of "Town of St. George" to the parish "St. George's"
     see: https://github.com/bermuda-automation/kw-data-import/issues/4
     '''
-    df["parish"] = df.parish.replace(["Town of St. George", "City of Hamilton"], 
-                                 ["St. George's", "Pembroke"], regex=False)
+    if 'city' in df.columns:
+        # this works for propertyskipper data
+        df["city"] = df.city.replace(["Town of St. George", "City of Hamilton", "City Of Hamilton",
+                                  "CIty of Hamilton", "Hamilton Parish", "St. Georges", "Smith's"], 
+                                 ["St. George's", "Pembroke", "Pembroke",
+                                  "Pembroke", "Hamilton", "St. George's", "Smiths"], regex=False)
+    elif 'parish' in df.columns:
+        # this works for landvaluation or other data
+        df["parish"] = df.parish.replace(["Town of St. George", "City of Hamilton", "City Of Hamilton",
+                                  "CIty of Hamilton", "Hamilton Parish", "St. Georges", "Smith's"], 
+                                 ["St. George's", "Pembroke", "Pembroke",
+                                  "Pembroke", "Hamilton", "St. George's", "Smiths"], regex=False)
+    else:
+        print("ERROR: No column named 'city' or 'parish' found in dataframe")
     return df
         
-
 def clean_parcel_id_based_addresses(df):
     """
+    DEPRECATED IN FAVOUR OF TWO OTHER FUNCTIONS:
+
+        1. clean_addresses_with_assessment_number(df, lv)
+        and
+        2. clean_addresses_with_norwood(df, nw):
+
     Attempts to identify properties which have an address
     less than 10 char long based on Norwood dataset
     for example will match: PE-3121 => 3 Jane Doe Lane
     """
     dfclean = df.copy(deep=False)
-    nw = pd.read_csv(NORWOOD_DATA_PATH + "parcel_id_assn_nr_database.csv")
-    lv = pd.read_csv(DATA_PATH + "kw-properties.csv")
+    nw = pd.read_csv(NORWOOD_DATA_PATH + "parcel_id_assn_nr_database.csv", dtype={"assessment_number": str})
+    lv = pd.read_csv(DATA_PATH + "kw-properties.csv", dtype={"assessment_number": str})
 
     addr_matches = []
     addr_n_assn_nr_matches = []
@@ -637,12 +645,23 @@ def clean_parcel_id_based_addresses(df):
                                '"',    " ",    "[",   "]" ]:  
                     assn_str = assn_str.replace(char, "")
                 assn_strs = assn_str.split(',')
-                assn_list = [int(x) for x in assn_strs]
+                assn_list = []
+                # create list with assessment numbers found
+                # verify that they are 9 digits long
+                # else add a trailing zero to the 8 digit long assessment number
+                for _an in assn_strs:
+                    if len(_an) == 9:
+                        assn_list.append(_an)
+                    if len(_an) == 8:
+                        _an = "0" + _an
+                        assn_list.append(_an)
+                    else:
+                        print('ERROR: Problem extracting assessment number for', row.assessment_number_list)
                     # find it in the land valuation (lv dataframe)
                 addresses = ""
                 for j, assn_x in enumerate(assn_list):
-                    addresses += lv[lv.assn_nr == assn_x]["building_name"].values[0]
-                    addresses += ", " + lv[lv.assn_nr == assn_x]["address"].values[0]
+                    addresses += lv[lv.assessment_number == assn_x]["building_name"].values[0]
+                    addresses += ", " + lv[lv.assessment_number == assn_x]["address"].values[0]
                     if j < len(assn_list)-1:
                         addresses += " + " # separate multiple addresses
                         addresses
@@ -659,7 +678,7 @@ def clean_parcel_id_based_addresses(df):
             if len(street_match) == 1:
                 # the address matches on known parcel_id
                 dfclean.loc[df_index, 'address'] = street_match.iat[0]
-                assn_nr_match = nw[nw.parcel_id == row.address].assn_nr
+                assn_nr_match = nw[nw.parcel_id == row.address].assessment_number
                 dfclean.loc[df_index, 'assessment_number_list'] = assn_nr_match.iat[0]
                 addr_n_assn_nr_matches.append(addr)
 
@@ -693,3 +712,120 @@ def clean_parcel_id_based_addresses(df):
     print("No match found for: ", no_match, "\n")
     # and print it with friendly message
     return dfclean
+
+def clean_addresses_with_assessment_number(df, lv):
+    ''' 
+    Address is deficient, but assessment number is present.
+
+    we will trust the assessment number before the parcel_id
+    if several assessment_numbers match and the address is the same,
+    we will keep both building names
+    :param df: dataframe with deficient addresses
+    :param lv: landvaluation dataframe
+    return: dataframe df with updated addresses
+    '''
+
+    deficient_addresses_with_an = df[(df.address.astype(str).str.len() < 10) & (df.assessment_number_list != 0)]
+
+    for k, row in deficient_addresses_with_an.iterrows():
+        # grab assessment numbers
+        _anl = row.assessment_number_list 
+        matches = []
+        for an in _anl:
+            # loop over assessment numbers and look them up in the 
+            # landvaluation dataset.
+            lv[lv.assessment_number == an]
+            matches.append(lv[lv.assessment_number == an])
+        
+        if len(matches) == 1: # one match
+            new_building_name = matches[0].building_name.values[0]
+            if new_building_name == '': # emptry building name
+                new_addr = matches[0].address.values[0]
+            else:
+                new_addr = matches[0].building_name.values[0] + ', ' + matches[0].address.values[0]
+        elif len(matches) > 1: # several matches
+            # are all matches for the same address?
+            _multi_addr = set([matches[i].address.values[0] for i in range(len(matches))])
+            if len(_multi_addr) == 1: # yes, same address
+                # join all distinct building names associated with that address
+                # that were in our list of assessment numbers
+                new_building_name = ', '.join(set([matches[i].building_name.values[0] for i in range(len(matches))]))
+                new_addr = new_building_name + ', ' + matches[0].address.values[0]
+            if len(_multi_addr) == 1: # several addresses (change to > 1)
+                # let's keep only the address with the largest ARV
+                arv_values = [matches[i].arv.values[0] for i in range(len(matches))]
+                max_arv = arv_values.index(max(arv_values))
+                new_building_name = matches[max_arv].building_name.values[0]
+                new_addr = new_building_name + ', ' + matches[max_arv].address.values[0]
+
+        # update dataframe with the new values
+        df.loc[k, 'address'] = new_addr
+    return df
+
+def clean_addresses_with_norwood(df, nw):
+    '''
+    2. Address is defficient and assessment number is missing.
+
+    let's identify those addresses which are short codes
+    or parcel IDs.  They are usually between 4 - 11 characters.
+    they begin with a 2 letter code for the parish, followed by 2 - 4 numbers.
+    shortest has form: PA-8, longest has form: SO-001814
+    :param df: dataframe with addresses
+    :param nw: norwood dataframe
+    :return: dataframe with addresses cleaned
+    '''
+    pattern = re.compile(r'^[A-Z]{2}-\d{1,6}$')
+    deficient_addresses_no_an = df[(df.address.astype(str).str.match(pattern)) & (df.assessment_number_list == 0)]
+    addr_matches = []
+    no_match = []
+
+
+    for k, row in deficient_addresses_no_an.iterrows():
+        # look up address in norwood dataset
+        addr = row.address
+        match = nw[nw.parcel_id == addr]
+        if match.shape[0] > 0:
+            new_str = match.street_address.values[0]
+            new_parish = match.parish.values[0]
+            new_postcode = match.postcode.values[0]
+
+            new_addr = "{}, {}, {} ({})".format(new_str, new_parish, new_postcode, addr)
+            assn_nr_match = match.assessment_number.values[0]
+            addr_matches.append(addr)
+
+        if match.shape[0] == 0:
+            # no address matches this parcel_id
+            if "/" in addr:
+                # try again without the part after the slash
+                shorter_addr = row.address.split('/')
+                match = nw[nw.parcel_id == shorter_addr[0]]
+                if len(match) == 1:
+                    new_str = match.street_address.values[0]
+                    new_parish = match.parish.values[0]
+                    new_postcode = match.postcode.values[0]
+
+                    new_addr = "{}, {}, {} ({})".format(new_str, new_parish, new_postcode, addr)
+                    assn_nr_match = match.assessment_number.values[0]
+                    addr_matches.append(addr)
+                elif len(street_match) > 1:
+                            print('Multiple Matches from Norwood:', street_match)
+                else:
+                    print("####=> nothing found for", row.address)
+                    no_match.append(addr)
+                    assn_nr_match = 0
+            else:
+                no_match.append(addr)
+                assn_nr_match = 0
+        
+        df.loc[k,'address'] = new_addr
+        if assn_nr_match != '0' and assn_nr_match != 0:
+            if len(assn_nr_match.split(',')) <= 2:
+                df.loc[k, 'assessment_number'] = assn_nr_match
+            else:
+                # too many assessment numbers associated with that value
+                pass
+
+    print("\nProcessing Parcel_IDs ...\n")
+    print("Address found for: ", addr_matches)
+    print("No match found for: ", no_match, "\n")
+    return df
