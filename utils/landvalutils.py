@@ -23,6 +23,9 @@ def process_and_merge_duplicates(df):
         # get a small dataframe with the duplicates matching the current row
         matches = df[df.assessment_number == adupe.assessment_number ]
         # save the name of the building which has a partial match
+        if matches.shape[0] == 0:
+            # not matches found. skip this row
+            continue
         build_name = matches.building_name_low.values[0]
         # save the index of the row to delete (if they are similar)
         index_to_delete = df.index[(df['building_name_low'] == build_name) & \

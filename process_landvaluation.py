@@ -19,13 +19,16 @@ import utils.landvalutils as LAV
 # concatenate the two csv files and then remove duplicates
 
 files_from_scraping = glob.glob('./scraping/*.csv') 
-last_scraped_data = max(files_from_scraping, key=os.path.getctime)
+# get the file which was last modified
+last_scraped_data = max(files_from_scraping, key=os.path.getmtime)
 
 
 latest_lv_data = "./data/landvaluation/latest_landvaluation_data.csv"
 
 # 2. Import both files and concatenate them
-df = pd.concat([pd.read_csv(latest_lv_data), pd.read_csv(last_scraped_data)], ignore_index=True)
+df = pd.concat([pd.read_csv(latest_lv_data, dtype={"assessment_number": str}), 
+                pd.read_csv(last_scraped_data, dtype={"assessment_number": str})], 
+                ignore_index=True)
 
 # 3. Process Duplicates (also further below)
 ##### change to lower
@@ -33,7 +36,9 @@ df["property_type"] = df["property_type"].str.lower().str.strip()
 df["tax_code"] = df["tax_code"].str.lower().str.strip()
 df["address_low"] = df["address"].str.lower().str.strip()
 df["building_name_low"] = df["building_name"].str.lower().str.strip()
+
 df = df.drop_duplicates()
+
 
 # 4. Simplify Categories (Standardise property_type)
 # Load Dictionary from CSV
@@ -77,6 +82,8 @@ df2 = LT.simplify_parishes(df2)
 
 # Select columns of interest    
 df_for_export = df2[["assessment_number","arv","tax_code","property_type", "address", "grid", "parish", "building_name"]]
+# make sure assessment numbers stay as 9 digit strings
+df_for_export.loc[:, 'assessment_number'] = df_for_export['assessment_number'].astype(str)
 # save to CSV
 df_for_export.to_csv("./data/kw-properties.csv", index=False)
 
