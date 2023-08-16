@@ -59,13 +59,13 @@ def download_skipper_xml(url):
                     if subtag.text is None:
                         pass
                     else:
-                        subfield_list.append(subtag.text.encode('utf8'))
+                        subfield_list.append(str(subtag.text.encode('utf8')))
                 aprop[tag[i].tag] = subfield_list
             else: # has no sub-fields
                 if tag[i].text is None:
                     aprop[tag[i].tag] = None
                 else:
-                    aprop[tag[i].tag] = tag[i].text # .encode('utf8')
+                    aprop[tag[i].tag] = str(tag[i].text) # .encode('utf8')
         all_properties.append(aprop)
 
     # define file to save to
@@ -95,34 +95,70 @@ def let_or_rent(df):
 
 
 
-def clean_ass_nr(an):
-    if an == None:
+def clean_assn_nr(an):
+    # is the assessment number a 8 or 9 digit string?
+    # if it starts by zero, remove the first zero to match the 
+    # landvaluation database format.  If it starts by any other number
+    # leave it as is.
+    # if it contains several numbers separated by comma we will look up
+    # their ARV and if the ARV is found, we will keep the assessment number
+    # with the highest ARV.  All other situations will be stored as zero.
+    pattern = re.compile(r'^\d{8,9}$')
+    # regex for a string with only zeroes
+    zero_pattern = re.compile(r'^[0]+$')
+    an = str(an).strip()
+
+    # it's a single assessment number
+    if zero_pattern.match(an):
         return 0
-    elif type(an) == "str" and an.isalpha():
-        # assessment number can't be made of letters only
-        return 0
-    else:
-        try:
-            _an = int(an)
-            if _an == 0:
+    elif pattern.match(an):
+        if len(an) == 9:
+            return an
+        elif len(an) == 8:
+            return '0' + an
+        else:
+            print('ERROR: assessment number missidenfied', an)
+            return 0
+    elif len(an) > 9:
+        # it may be a list of assessment numbers
+        # remove "&" or "and" and other symbols from the lists
+        assn_nr = an.replace('b','').replace('[','').replace(']','').replace("'","").strip()
+        assn_nr = assn_nr.replace(", and", ",")
+        assn_nr = assn_nr.replace(",and", ",")
+        assn_nr = assn_nr.replace("&", ",")
+        list_of_ass_nr = assn_nr.split(",")
+        if len(list_of_ass_nr) <= 1:
+            # not a list of assessment numbers
+            return 0
+        else:
+            # process list of assessment numbers
+            # remove empty space
+            clean_list = [x.strip() for x in list_of_ass_nr]
+            # recursively check for assessment numbers (number, length, etc)
+            assn_nr_clean = [clean_assn_nr(x) for x in clean_list]
+            # keep list elements that are not false
+            an_list = [x[0] for x in assn_nr_clean if x]
+            if len(an_list) == 0:
+                # did we end up with an empty list?
                 return 0
             else:
-                # not letters, not None, not zero
-                return an
-        except:
-            # it was not a number
-            return 0
+                return an_list
+    elif len(an) <= 7:
+        return 0
+    else:
+        print('NOTHING FOUND FOR Assessment Number', an)
+        return 0
 
 
 def clean_address(addr):
     if addr == None:
-        return ""
+        return 0
     else:
         try:
             # this should fail
             # the address can't be just a number
-            addr = int(an)
-            return ""
+            addr = int(addr)
+            return 0
         except:
             # it was not a number
             return addr
@@ -132,15 +168,43 @@ def _fractional_filter(df):
     """
     function to filter dataframe searching for fractional properties
     """
-    if pd.isnull(df['property_type']):
-        return 0
-    elif ('fractional' in str(df.name)):
+    usual_fractions = [f"1/{n} th" for n in range(2,21)]+[f"1/{n}th" for n in range(2,21)]
+    fractional_keywords = ["fraction", "frational", "factional", "fractional", "1/10 share", 
+                       "th share", "one tenth", "one sixth", "timeshares", "timeshare", "fractional ownership",
+                       "harbour court residences", "harbour court", "tuckers point golf villa",
+                       "belmont hills unit", "tucker's point golf villa", "golf villas residence club",
+                      "081265514", "081248016", "071919105", "1/10 fraction", "1/10 fractionof"] 
+                    # last 3 numbers are the assess_nr of compounds with lots of apartments
+                    # like Newstead Belmont Hills, the Reefs, Harbour Court, Tucker's Point
+    fractional_keywords = fractional_keywords + usual_fractions
+
+    url = str(df['url']).lower()
+    url_condition = (any([x in url for x in fractional_keywords]))
+
+    name = str(df['name']).lower()
+    name_condition = (any([x in name for x in fractional_keywords]))
+    
+    short_desc = str(df['short_description']).lower()
+    short_condition = (any([x in short_desc for x in fractional_keywords]))
+
+    long_desc = str(df['long_description']).lower()
+    long_condition = (any([x in long_desc for x in fractional_keywords]))
+
+    prop_type = str(df['property_type']).lower()
+    type_condition = (any([x in prop_type for x in fractional_keywords]))
+
+    if (url_condition | name_condition | short_condition | long_condition | type_condition):
         return 'fractional'
-    elif (("Tucker's Point" in str(df.name)) | ("Newstead" in str(df['name'])) |
-   ("Reefs" in str(df.name)))  & (df['property_type'] == 'condo'):
+    elif pd.isnull(df['property_type']):
+        return 0
+    elif (('081265514' in str(df.assessment_number)) | ('081248016' in str(df.assessment_number)) | \
+              ('071919105' in str(df.assessment_number))):
+        return 'fractional'
+    elif ("Reefs" in str(df.name))  & (df['property_type'] == 'condo'):
         return 'fractional'
     else:
         return df['property_type']
+
 
 def identify_land_and_fractional(df):
     """
@@ -218,22 +282,26 @@ def _address_filter(df):
     landvaluation database which has accurate addresses.
     if a flag already exists, then append this new one to it.
     """
-    if df["property_type"] == "land" and len(df["name"]) < 12:
-        # land wont have assessment number to locate it, so a short address is insufficient
-        return "ADDRESS"
-    elif df["property_type"] == "fractional" and not contains_number(df["name"]):
-        # fractional won't have assessment number, and an address without number is unlikely to be good
-        return "ADDRESS"
-    elif df["property_type"] == "fractional" and len(df["name"]) < 12:
-        return "ADDRESS"
-    elif not df["assessment_number"] and ((len(df["name"]) < 12) or not contains_number(df["name"])):
-        return "ADDRESS"
+    if df["name"]: # flag problems with address
+        if df["property_type"] == "land" and len(df["name"]) < 10:
+            # land wont have assessment number to locate it, so a short address is insufficient
+            return "ADDRESS"
+        elif df["property_type"] == "fractional" and not contains_number(df["name"]):
+            # fractional won't have assessment number, and an address without number is unlikely to be good
+            return "ADDRESS"
+        elif df["property_type"] == "fractional" and len(df["name"]) < 10:
+            return "ADDRESS"
+        elif not df["assessment_number"] and ((len(df["name"]) < 10) or not contains_number(df["name"])):
+            return "ADDRESS"
+        elif len(df["name"]) < 10: 
+            return "ADDRESS" # Address seems too short
+        elif not contains_number(df["name"]):   
+            return "ADDRESS"
+    elif df["name"] and (len(str(df.assessment_number)) == 8) or (len(str(df.assessment_number)) == 9):
+        # no address present but single assessment number
+        return "" # probably ok to find the address from the assessment number
     elif (len(str(df.assessment_number)) == 8) or (len(str(df.assessment_number)) == 9):
-        return ""
-    elif len(df["name"]) < 12: 
-        return "ADDRESS" # Address seems too short
-    elif not contains_number(df["name"]):
-        return "ADDRESS"
+            return ""
     else:
         return "" # probably ok
 

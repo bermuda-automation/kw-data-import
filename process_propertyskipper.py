@@ -3,6 +3,7 @@
 import configparser
 import utils.skipperutils as skipu
 
+import pandas as pd
 import numpy as np
 
 # Get secret URL API
@@ -12,20 +13,32 @@ url = keys.get("skipper", "URL")
 
 # download XML and convert to CSV
 csv_data = skipu.download_skipper_xml(url)
-# csv_data = 'data/skipper/2022-9-18_skipper_properties.csv'
+# csv_data = 'data/skipper/2023-08-14_skipper_properties.csv'
 print("\nLast XML downloaded and saved to ./data/skipper/ \n")
-# note that we neeed a strategy to clear up old
-# CSV files as they will start taking up space (~1.5MB each)
 
 # load data into dataframe
 df = skipu.pd.read_csv(csv_data)
+
 # change everything that is empty with np.nan
-# then change all of np.nan with python's None
-df = df.fillna(np.nan).replace([np.nan], [None])
-# clean assessment number column so we have None, 0 or a proper assessment number
-df["assessment_number"] = df.assessment_number.map(lambda x: skipu.clean_ass_nr(x))
+# delete all empty columns & rows
+df = df.dropna(axis=1, how='all')
+df = df.dropna(axis=0, how='all')
+
+# replace nan with zero
+df = df.replace(np.nan, 0, regex=True)
+
+# Make sure prices are numeric
+df ['price'] = pd.to_numeric(df['price'], errors='coerce')
+# clean assessment number column so we have
+#  either a proper assessment number or 0
+df["assessment_number"] = df.assessment_number.map(lambda x: skipu.clean_assn_nr(x))
+# if address is empty or just a number leave it as zero.
 df["name"] = df.name.map(lambda x: skipu.clean_address(x))
 
+""" REDO THIS PART
+check the typical errors and problems with property type.
+Use for advanced filters for house, condo, fractional, land, commercial, etc.
+ """
 # make sure land and fractional properties are well labeled
 df = skipu.identify_land_and_fractional(df)
 
@@ -51,13 +64,15 @@ df["agent"] = df.agent.apply(skipu.clean_up_agent_list).apply(skipu.agent_list_t
 # merge city hamilton -> pembroke and Town of St.George -> St. George
 df = skipu.simplify_parishes(df)
 
+
+
 # Save to the two CSVs
 skipper_property = df[["reference", "skipper_id","assessment_number", "name", "parish", "zip", "flag", 
-      "longitude", "latitude",
-     "property_type",
+      "longitude", "latitude", 
+      "property_type",
      "url", "views", "special_headline", "short_description", "long_description",
-     'youtube_id', 'vimeo_id', 'rego_embed_id', 'paradym_url',  'virtual_tour_url', 'virtual_tour_img',
-     "images",
+     'youtube_id', 'vimeo_id', 'paradym_url',  'virtual_tour_url', "images",
+     # 'virtual_tour_img', 'rego_embed_id' seem to be empty
      'bedrooms', 'bathrooms', 'half_bathrooms', "lotsize", 'sqft']]
 
 listing = df[["reference", "skipper_id","date_added", "date_relisted", "is_rent", "is_sale", 
