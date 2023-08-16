@@ -347,7 +347,7 @@ def clean_and_flag_properties(df):
 
     # apply flag filters
     # note that all filters return strings, so we can concatenate them later
-    df["flag"] = flags_address.str.cat(flags_an, sep=" ").str.cat(flags_price, sep=" ").str.cat(flags_country, sep=" ").strip()
+    df["flag"] = flags_address.str.cat(flags_an, sep=" ").str.cat(flags_price, sep=" ").str.cat(flags_country, sep=" ").str.strip()
     return df
     
 
