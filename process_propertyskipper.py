@@ -35,10 +35,6 @@ df["assessment_number"] = df.assessment_number.map(lambda x: skipu.clean_assn_nr
 # if address is empty or just a number leave it as zero.
 df["name"] = df.name.map(lambda x: skipu.clean_address(x))
 
-""" REDO THIS PART
-check the typical errors and problems with property type.
-Use for advanced filters for house, condo, fractional, land, commercial, etc.
- """
 # make sure land and fractional properties are well labeled
 df = skipu.identify_land_and_fractional(df)
 

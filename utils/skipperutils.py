@@ -251,8 +251,8 @@ def _price_filter(df):
         return "PRICE"
     elif df["price"] == 0 or df["price"] == "0":
         return "PRICE"
-    elif (int(df.price) < 2000) & (df.is_sale == 1):
-        return "PRICE"   # $2000 is too cheap for a sale in Bermuda
+    elif (int(df.price) < 20_000) & (df.is_sale == 1):
+        return "PRICE"   # $20,000 is too cheap for a sale in Bermuda
     else:
         return ""  # df['flag']
 
@@ -271,6 +271,14 @@ def _assessment_number_filter(df):
         return "ASSN#"
     elif (len(str(df.assessment_number)) == 8) or (len(str(df.assessment_number)) == 9):
          return ""  # probably correct
+    elif len(str(df.assessment_number)) > 9:
+        _an = clean_assn_nr(df.assessment_number)
+        if _an != 0:
+            # it found a good assessment number or 
+            # assessment number list.
+            return ""
+        else:
+            return "ASSN#"
     else:
         return "ASSN#" # if we got here it's not an 8 or 9 character number => likely bad assessment number
 
@@ -283,8 +291,11 @@ def _address_filter(df):
     if a flag already exists, then append this new one to it.
     """
     if df["name"]: # flag problems with address
-        if df["property_type"] == "land" and len(df["name"]) < 10:
+        if df["property_type"] == "land" and len(df["name"]) < 10: # for example: 3 South Rd
             # land wont have assessment number to locate it, so a short address is insufficient
+            return "ADDRESS"
+        elif df["property_type"] == "land" and not contains_number(df["name"]):
+            # land won't have assessment number, and an address without number is unlikely to be good
             return "ADDRESS"
         elif df["property_type"] == "fractional" and not contains_number(df["name"]):
             # fractional won't have assessment number, and an address without number is unlikely to be good
@@ -292,11 +303,10 @@ def _address_filter(df):
         elif df["property_type"] == "fractional" and len(df["name"]) < 10:
             return "ADDRESS"
         elif not df["assessment_number"] and ((len(df["name"]) < 10) or not contains_number(df["name"])):
+            # no assessment number, short and without number: Unlikely to identify the property
             return "ADDRESS"
-        elif len(df["name"]) < 10: 
-            return "ADDRESS" # Address seems too short
-        elif not contains_number(df["name"]):   
-            return "ADDRESS"
+        elif len(df["name"]) < 10 and not contains_number(df["name"]): 
+            return "ADDRESS" # Address seems too short and has no number
     elif df["name"] and (len(str(df.assessment_number)) == 8) or (len(str(df.assessment_number)) == 9):
         # no address present but single assessment number
         return "" # probably ok to find the address from the assessment number
@@ -305,14 +315,13 @@ def _address_filter(df):
     else:
         return "" # probably ok
 
-
 def _country_filter(df):
     """
     find incorrect country
     (unlikely to be an error, but just in case)
     """
     if pd.isnull(df.country):
-        return "COUNTRY"
+        return "bermuda"
     elif df.country != "bermuda":
         return "COUNTRY"
     else:
@@ -334,10 +343,11 @@ def clean_and_flag_properties(df):
     flags_address = df.apply(_address_filter, axis = 1)
     flags_an = df.apply(_assessment_number_filter, axis =1)  
     flags_price = df.apply(_price_filter, axis =1)
+    flags_country = df.apply(_country_filter, axis =1)
 
     # apply flag filters
     # note that all filters return strings, so we can concatenate them later
-    df["flag"] = flags_address.str.cat(flags_an, sep=" ").str.cat(flags_price, sep=" ").str.strip()
+    df["flag"] = flags_address.str.cat(flags_an, sep=" ").str.cat(flags_price, sep=" ").str.cat(flags_country, sep=" ").strip()
     return df
     
 
