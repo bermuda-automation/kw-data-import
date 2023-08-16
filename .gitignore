@@ -2,6 +2,8 @@
 *~
 \#*\#
 
+# python files
+*__pycache__
 # API
 utils/kw_config.txt
 
@@ -9,4 +11,11 @@ utils/kw_config.txt
 data/*
 # exception
 !data/README.md
+
+scraping/*.csv
+scraping/edgedriver
+
+.vscode/*
+
+
 
