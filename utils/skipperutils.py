@@ -96,26 +96,56 @@ def let_or_rent(df):
 
 
 def clean_assn_nr(an):
-    # is the assessment number a 8 or 9 digit string?
-    # if it starts by zero, remove the first zero to match the 
-    # landvaluation database format.  If it starts by any other number
-    # leave it as is.
-    # if it contains several numbers separated by comma we will look up
-    # their ARV and if the ARV is found, we will keep the assessment number
-    # with the highest ARV.  All other situations will be stored as zero.
+    """
+    Is the assessment number a 8 or 9 digit string?
+    if it starts by zero, remove the first zero to match the 
+    landvaluation database format.  If it starts by any other number
+    leave it as is.
+    if it contains several numbers separated by comma we will look up
+    their ARV and if the ARV is found, we will keep the assessment number
+    with the highest ARV.  All other situations will be stored as zero.
+
+    :param an: str assessment number
+    :return: list or int assessment number or zero
+    """
+    # regex for 8 or 9 digit string
     pattern = re.compile(r'^\d{8,9}$')
     # regex for a string with only zeroes
     zero_pattern = re.compile(r'^[0]+$')
-    an = str(an).strip()
-
+    
+    # has this an already been processed into a list?
+    if isinstance(an, list) and len(an) == 1:
+        if zero_pattern.match(an[0]):
+            return 0
+        elif pattern.match(an[0]):
+            return an
+        else: # for example: an =  ['122674022 and 122674111']
+            return str(an).strip()
+    elif isinstance(an, list) and len(an) > 1:
+        if any(zero_pattern.match(x) for x in an):
+            # the list contains an an of the form 0000000
+            # convert to string for further processing below
+            an = str(an).strip()
+        elif all(pattern.match(x) for x in an):
+            # all elements in the an list have the correct format
+            return an
+        else: # for example: an =  ['122674022 and 122674111', '123123123']
+            an = str(an).strip()
+    else:
+        # convert to string for further processing
+        an = str(an).strip()
+        if 'vacant land' in an.lower() or 'land' in an.lower():
+            return 0
     # it's a single assessment number
-    if zero_pattern.match(an):
+    if zero_pattern.match(an):  
         return 0
     elif pattern.match(an):
         if len(an) == 9:
-            return an
+            # return a single assessment number list
+            return [an]
         elif len(an) == 8:
-            return '0' + an
+            # return a single assessment number list with trailing zero
+            return ['0' + an]
         else:
             print('ERROR: assessment number missidenfied', an)
             return 0
@@ -127,9 +157,12 @@ def clean_assn_nr(an):
         assn_nr = assn_nr.replace(",and", ",")
         assn_nr = assn_nr.replace("&", ",")
         list_of_ass_nr = assn_nr.split(",")
-        if len(list_of_ass_nr) <= 1:
+        if len(list_of_ass_nr) == 0:
             # not a list of assessment numbers
             return 0
+        elif len(list_of_ass_nr) == 1:
+            # it was a single assessment number
+            return list_of_ass_nr
         else:
             # process list of assessment numbers
             # remove empty space
