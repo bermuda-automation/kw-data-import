@@ -17,7 +17,7 @@ csv_data = skipu.download_skipper_xml(url)
 print("\nLast XML downloaded and saved to ./data/skipper/ \n")
 
 # load data into dataframe
-df = skipu.pd.read_csv(csv_data)
+df = pd.read_csv(csv_data)
 
 # change everything that is empty with np.nan
 # delete all empty columns & rows
