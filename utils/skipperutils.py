@@ -156,6 +156,12 @@ def clean_assn_nr(an):
         assn_nr = assn_nr.replace(", and", ",")
         assn_nr = assn_nr.replace(",and", ",")
         assn_nr = assn_nr.replace("and", ",")
+        # remove anything that is left which contains letters
+        assn_nr = re.sub(r'[a-zA-Z]', '', assn_nr)
+        # remove if number precdes assn_nr like '8 122674022'
+        assn_nr = re.sub(r'\d\s', '', assn_nr)
+        assn_nr = assn_nr.replace("(", "")
+        assn_nr = assn_nr.replace(")", "")
         assn_nr = assn_nr.replace("&", ",")
         list_of_ass_nr = assn_nr.split(",")
         if len(list_of_ass_nr) == 0:
