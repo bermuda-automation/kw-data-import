@@ -2,6 +2,7 @@
 
 import configparser
 import utils.skipperutils as skipu
+import utils.LTROutils as LT
 
 import pandas as pd
 import numpy as np
@@ -41,6 +42,10 @@ df = skipu.identify_land_and_fractional(df)
 # make property type uniform
 df = skipu.uniform_property_type(df)
 print("properties cleaned, property_type identified.\n")
+
+# Use landvaluation to clean up potentially spurious property_type-s
+lv = pd.read_csv("./data/kw-properties.csv", dtype={"assessment_number": str})
+df = LT.clean_property_type(df, lv)
 
 # flag properties with bad price, address, assessment number, country
 df = skipu.clean_and_flag_properties(df)

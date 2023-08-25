@@ -78,56 +78,6 @@ def clean_ltro_data(df):
 
     return df
 
-# DEPRECATED IN FAVOUR OF utils.skipperutils.clean_assn_nr
-def _get_assessment_number(assn_nr): 
-    '''
-    Reads the element in the dataframe containing
-    the assessment number.  This can have integers,
-    non-sensical strings, descriptors (like "Dock" or "Land").
-    If it contains a valid assessment number or a comma separated
-    list of assessment numbers it will return them.  Otherwise, it
-    will return the number zero (0).
-    '''
-    assn_nr = str(assn_nr).strip()
-    if len(assn_nr) < 8:
-        return 0
-    elif (len(assn_nr) == 8) or (len(assn_nr) == 9):
-        try:
-            int(assn_nr)
-            if len(assn_nr) == 8:
-                # is missing the trailing zero
-                return ["0" + assn_nr]
-            else:
-                return [assn_nr]
-        except Exception:
-            # it was not a number
-            return 0
-    elif len(assn_nr) > 9:
-        # it may be a list of assessment numbers
-        # remove "&" or "and" and other symbols from the lists
-        
-        assn_nr = assn_nr.replace('b','').replace('[','').replace(']','').replace("'","").strip()
-        assn_nr = assn_nr.replace(", and", ",")
-        assn_nr = assn_nr.replace(",and", ",")
-        assn_nr = assn_nr.replace("&", ",")
-        list_of_ass_nr = assn_nr.split(",")
-        if len(list_of_ass_nr) <= 1:
-            # not a list of assessment numbers
-            return 0
-        else:
-            # process list of assessment numbers
-            # remove empty space
-            clean_list = [x.strip() for x in list_of_ass_nr]
-            # recursively check for assessment numbers (number, length, etc)
-            assn_nr_clean = [get_assessment_number(x) for x in clean_list]
-            # keep list elements that are not false
-            an_list = [x[0] for x in assn_nr_clean if x]
-            if len(an_list) == 0:
-                # did we end up with an empty list?
-                return False
-            else:
-                return an_list
-
 def _in_keywords(x, keywords):
     '''
     Check if any of the keywords are in string x
@@ -483,6 +433,24 @@ def clean_property_type(df, lv):
             # will be found the second time
             fixed_an = skipu.clean_assn_nr(an)
 
+        # does the df already have a property type?
+        current_p_type = row.property_type
+        if p_type == 0 and current_p_type == False:
+            # change to zero
+            df.loc[index, 'property_type'] = p_type
+        elif p_type == 0 and isinstance(current_p_type, str):
+            pass # keep as it is
+        elif p_type !=0 and current_p_type == False:
+            # replace with landvaluation type
+            df.loc[index, 'property_type'] = p_type
+        elif p_type !=0 and current_p_type == 0:
+            # replace with landvaluation type
+            df.loc[index, 'property_type'] = p_type
+        elif p_type !=0 and isinstance(current_p_type, str):
+            # trust the landvaluation more
+            df.loc[index, 'property_type'] = p_type
+        else:
+            print('No property types found for ----->', p_type, current_p_type)
     return df   
 
 def clean_area(df):

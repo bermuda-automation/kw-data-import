@@ -156,6 +156,10 @@ def clean_assn_nr(an):
         assn_nr = assn_nr.replace(", and", ",")
         assn_nr = assn_nr.replace(",and", ",")
         assn_nr = assn_nr.replace("and", ",")
+        # for cases like ['05088701    050887114']
+        pattern= re.compile(r'^\d{6,10}\s+\d{6,10}$')
+        if pattern.match(assn_nr):
+            assn_nr = assn_nr.replace("  ", ",")
         # remove anything that is left which contains letters
         assn_nr = re.sub(r'[a-zA-Z]', '', assn_nr)
         # remove if number precdes assn_nr like '8 122674022'
