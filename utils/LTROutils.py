@@ -102,6 +102,8 @@ def identify_fractionals(df):
     usual_fractions = [f"1/{n} th" for n in range(2,21)]+[f"1/{n}th" for n in range(2,21)]
     fractional_keywords = ["fraction", "frational", "factional", "fractional", "1/10 share", 
                        "th share", "one tenth", "one sixth", "timeshares", "timeshare",
+                       "harbour court residences", "harbour court", "tuckers point golf villa",
+                       "belmont hills unit", "tucker's point golf villa", "golf villas residence club",
                       "081265514", "081248016", "071919105", "1/10 fraction", "1/10 fractionof"] 
                     # last 3 numbers are the assess_nr of compounds with lots of apartments
                     # like Newstead Belmont Hills, the Reefs, Harbour Court, Tucker's Point
@@ -122,7 +124,7 @@ def identify_fractionals(df):
 
     return df
 
-def identify_lands(df):
+def identify_lands(df, skipper_dataframe=False):
     '''
     Identify which rows correspond to sales of lands
     because they contain certain keywords and have no assessment number
@@ -133,15 +135,22 @@ def identify_lands(df):
     land_keywords = ["vacant lot", "lot of land", "land on", "lot", "land lying", 
                  "land situate", "land situated", "share in land", "government land"]
     land_anti_keywords = ["fairyland lane", "fruitland lane", "camelot", "jiblot", "treslot", "3 scenic lane"] # not lands
+    
+    if skipper_dataframe:
+        # for processing propertyskipper data
+        address_column_name = 'name'
+    else:
+        # for processing LTRO data
+        address_column_name = 'address'
 
-    df['address'] = df['address'].fillna('')
+    df[address_column_name] = df[address_column_name].fillna('')
     df['assessment_number'] = df['assessment_number'].fillna('')
 
     # Creating conditions for both the keywords and anti-keywords
-    keyword_conditions = df['address'].str.lower().apply(lambda x: _in_keywords(x, land_keywords))
+    keyword_conditions = df[address_column_name].str.lower().apply(lambda x: _in_keywords(x, land_keywords))
     keyword_conditions_assn_nr = df['assessment_number'].str.lower().apply(lambda x: _in_keywords(x, land_keywords))
 
-    anti_keyword_conditions = df['address'].str.lower().apply(lambda x: not _in_keywords(x, land_anti_keywords))
+    anti_keyword_conditions = df[address_column_name].str.lower().apply(lambda x: not _in_keywords(x, land_anti_keywords))
     anti_keyword_conditions_assn_nr = df['assessment_number'].str.lower().apply(lambda x: not _in_keywords(x, land_anti_keywords))
 
     # Applying both conditions

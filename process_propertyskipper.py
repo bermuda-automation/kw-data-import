@@ -37,7 +37,9 @@ df["assessment_number"] = df.assessment_number.map(lambda x: skipu.clean_assn_nr
 df["name"] = df.name.map(lambda x: skipu.clean_address(x))
 
 # make sure land and fractional properties are well labeled
-df = skipu.identify_land_and_fractional(df)
+df = skipu.identify_fractionals(df)
+print(df.columns)
+df = LT.identify_lands(df, skipper_dataframe=True)
 
 # make property type uniform
 df = skipu.uniform_property_type(df)

@@ -8,7 +8,6 @@ from datetime import datetime
 import requests 
 import pandas as pd
 
-
 def download_skipper_xml(url):
     """
     Opens url with API endpoint which is an XML file
@@ -92,8 +91,6 @@ def let_or_rent(df):
     rent_or_let.apply(lambda x: 0 if x < 0 else 1)
     df["is_rent"] = rent_or_let  # now can be 0=not_rent or 1=rent
     return df
-
-
 
 def clean_assn_nr(an):
     """
@@ -193,7 +190,6 @@ def clean_assn_nr(an):
         print('NOTHING FOUND FOR Assessment Number', an)
         return 0
 
-
 def clean_address(addr):
     if addr == None:
         return 0
@@ -207,7 +203,6 @@ def clean_address(addr):
             # it was not a number
             return addr
         
-
 def _fractional_filter(df):
     """
     function to filter dataframe searching for fractional properties
@@ -249,8 +244,7 @@ def _fractional_filter(df):
     else:
         return df['property_type']
 
-
-def identify_land_and_fractional(df):
+def identify_fractionals(df):
     """
     Find properties which may have the wrong property type
     In particular those which don't have assessment number
@@ -258,8 +252,6 @@ def identify_land_and_fractional(df):
     """
     df.property_type = df.apply(_fractional_filter, axis = 1)
     return df
-
-
 
 def uniform_property_type(df):
     """
@@ -275,14 +267,11 @@ def uniform_property_type(df):
     df2=df.replace({"property_type": property_type_dict})
 
     #
-    return df2
-
-                                                            
+    return df2                                                            
 
 def contains_number(value):
     ''' check if the value has numbers '''
     return bool(re.findall('[0-9]+', value))
-
 
 def _price_filter(df):
     """
@@ -325,7 +314,6 @@ def _assessment_number_filter(df):
             return "ASSN#"
     else:
         return "ASSN#" # if we got here it's not an 8 or 9 character number => likely bad assessment number
-
 
 def _address_filter(df):
     """ 
@@ -394,7 +382,6 @@ def clean_and_flag_properties(df):
     df["flag"] = flags_address.str.cat(flags_an, sep=" ").str.cat(flags_price, sep=" ").str.cat(flags_country, sep=" ").str.strip()
     return df
     
-
 def sanitize_text(df):
     """
     Map carriage returns like \r to \n
@@ -404,7 +391,6 @@ def sanitize_text(df):
     df.replace('\\n', '', regex=True, inplace=True)
     df.replace('\\r', ' ', regex=True, inplace=True)
     return df                  
-
 
 def remove_extra_chars(x):
     x_clean = x.replace('b','').replace('[','').replace(']','').replace("'","").strip()
