@@ -9,6 +9,8 @@ utils/kw_config.txt
 
 # ignore everything in data folder
 data/*
+# ignore local exports
+exports/*
 # exception
 !data/README.md
 

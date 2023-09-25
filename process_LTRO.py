@@ -15,13 +15,13 @@ from utils.LTROutils import NORWOOD_DATA_PATH
 # 5. use standard parishes
 
 # 1. Files from LTRO:
-data_18_22 = "./data/LTRO/LTRO_2018_2022.xlsx"
-data_18_processed = "./data/LTRO/LTRO_2018.csv"
-data_22 = "./data/LTRO/LTRO_2022.xlsx"
+DATA_18_22 = "./data/LTRO/LTRO_2018_2022.xlsx"
+DATA_18_PROCESSED = "./data/LTRO/LTRO_2018.csv"
+DATA_22 = "./data/LTRO/LTRO_2022.xlsx"
 
-df = pd.read_excel(data_18_22, header=None, skiprows=9)
-older_ltro = pd.read_csv(data_18_processed)
-dflast =  pd.read_excel(data_22, header=None, skiprows=9)
+df = pd.read_excel(DATA_18_22, header=None, skiprows=9)
+older_ltro = pd.read_csv(DATA_18_PROCESSED)
+dflast =  pd.read_excel(DATA_22, header=None, skiprows=9)
 
 # 2. Clean Files
 df = LT.clean_ltro_data(df)
@@ -34,9 +34,9 @@ df = df.replace(np.nan, 0, regex=True)
 df['registration_date'] =  pd.to_datetime(df['registration_date'], format='%Y-%m-%d').dt.date
 df.reset_index(drop=True, inplace=True)
 
-print('\n{} sales imported between dates: {} and {} \n'.format(df.shape[0], 
-                                                               df.registration_date.min(), 
-                                                               df.registration_date.max()))
+print(f"\n{df.shape[0]} sales imported between dates:"
+      f"{df.registration_date.min()} and "
+      f"{df.registration_date.max()}\n")
 
 # 3. a new columns called "property_type"
 # is defined. It will contain either
@@ -48,7 +48,7 @@ df = LT.identify_condos(df)
 
 # 4. Remove Duplicates
 LTRO_entries = df.shape[0]
-df = df.drop_duplicates(subset=['application_number','registration_date', 
+df = df.drop_duplicates(subset=['application_number','registration_date',
                                 'acquisition_date',
                                 'assessment_number',
                                 'price'], 
@@ -98,7 +98,8 @@ final_df["assessment_number"] = final_df.assessment_number.apply(skipu.clean_ass
 
 # try to find the assessment number or address
 # for properties identified only with their parcel ID (like PA-2037)
-nw = pd.read_csv(NORWOOD_DATA_PATH + "parcel_id_assn_nr_database.csv", dtype={"assessment_number": str})
+nw = pd.read_csv(NORWOOD_DATA_PATH + "parcel_id_assn_nr_database.csv",
+                 dtype={"assessment_number": str})
 
 # final_df = LT.clean_parcel_id_based_addresses(final_df)
 final_df = LT.clean_addresses_with_assessment_number(final_df, lv)

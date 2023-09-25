@@ -1,11 +1,12 @@
-# process property skipper data
+"""Module to process property skipper data"""
 
 import configparser
-import utils.skipperutils as skipu
-import utils.LTROutils as LT
 
 import pandas as pd
 import numpy as np
+
+import utils.skipperutils as skipu
+import utils.LTROutils as LT
 
 # Get secret URL API
 keys = configparser.ConfigParser()
@@ -32,13 +33,13 @@ df = df.replace(np.nan, 0, regex=True)
 df ['price'] = pd.to_numeric(df['price'], errors='coerce')
 # clean assessment number column so we have
 #  either a proper assessment number or 0
-df["assessment_number"] = df.assessment_number.map(lambda x: skipu.clean_assn_nr(x))
+df["assessment_number"] = df.assessment_number.apply(skipu.clean_assn_nr)
 # if address is empty or just a number leave it as zero.
-df["name"] = df.name.map(lambda x: skipu.clean_address(x))
+df["name"] = df.name.apply(skipu.clean_address)
 
 # make sure land and fractional properties are well labeled
 df = skipu.identify_fractionals(df)
-print(df.columns)
+# identify lands and add 'land' in the property_type column
 df = LT.identify_lands(df, skipper_dataframe=True)
 
 # make property type uniform
@@ -70,18 +71,17 @@ df = skipu.simplify_parishes(df)
 
 
 # Save to the two CSVs
-skipper_property = df[["reference", "skipper_id","assessment_number", "name", "parish", "zip", "flag", 
-      "longitude", "latitude", 
-      "property_type",
+skipper_property = df[["reference", "skipper_id","assessment_number",
+                       "name", "parish", "zip", "flag",
+                        "longitude", "latitude", "property_type",
      "url", "views", "special_headline", "short_description", "long_description",
      'youtube_id', 'vimeo_id', 'paradym_url',  'virtual_tour_url', "images",
      # 'virtual_tour_img', 'rego_embed_id' seem to be empty
      'bedrooms', 'bathrooms', 'half_bathrooms', "lotsize", 'sqft']]
 
-listing = df[["reference", "skipper_id","date_added", "date_relisted", "is_rent", "is_sale", 
-                "under_contract", "under_offer", "buyer_type",
-               "price", "price_from", "daily_rate",
-               'agent']]
+listing = df[["reference", "skipper_id","date_added", "date_relisted",
+              "is_rent", "is_sale", "under_contract", "under_offer", "buyer_type",
+               "price", "price_from", "daily_rate", 'agent']]
 
 skipper_property.to_csv("./data/kw-skipper_properties.csv", index=False)
 listing.to_csv("./data/kw-listings.csv", index=False)

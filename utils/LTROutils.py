@@ -269,9 +269,9 @@ def process_duplicates(df):
 
                 if 'fractional' in prop_type:
                     # 3. keep only fractional
-                        which_one_is_fractional = prop_type.index("fractional")
-                        to_delete = dupli_indx[0:which_one_is_fractional] + dupli_indx[which_one_is_fractional+1:]
-                        marked_for_delete.extend(to_delete)
+                    which_one_is_fractional = prop_type.index("fractional")
+                    to_delete = dupli_indx[0:which_one_is_fractional] + dupli_indx[which_one_is_fractional+1:]
+                    marked_for_delete.extend(to_delete)
 
 
                 elif len(an) == an.count(False) and 'fractional' not in prop_type:
@@ -338,7 +338,7 @@ def add_arv_to_ltro(df, lv):
     '''
     arvs_for_ltro = []
 
-    for index, row in df.iterrows():
+    for _, row in df.iterrows():
         an = skipu.clean_assn_nr(row.assessment_number)
         if an and len(an) == 1: # single assessment number
             try:
@@ -367,12 +367,11 @@ def add_arv_to_ltro(df, lv):
             else: # no arvs in the list
                 arvs_for_ltro.append(0)
         else: # no assessment number
-            pass
             arvs_for_ltro.append(0)
         # sanitity check: df.shape[0] should be len(arvs_for_ltro)
 
     df['arv'] = arvs_for_ltro
-    df['combined_arv'] = df.arv.map(lambda x : find_combined_arv(x))
+    df['combined_arv'] = df.arv.apply(find_combined_arv)
 
     return df
 
@@ -440,7 +439,7 @@ def clean_property_type(df, lv):
             # as strings instead of lists. Fix them.
             # Since this function runs twice, the property type
             # will be found the second time
-            fixed_an = skipu.clean_assn_nr(an)
+            df['assessment_number'] = df.assessment_number.apply(skipu.clean_assn_nr)
 
         # does the df already have a property type?
         current_p_type = row.property_type
@@ -468,12 +467,11 @@ def clean_area(df):
     # 2. is there a unit?
     # if not save zero, otherwise convert to Ha and store
     unified_area = []
-    for idx, row in df.iterrows():
+    for _, row in df.iterrows():
         si = str(row.parcel_area).lower()
         
         if si != 'nan':
             contains_digit = any(map(str.isdigit, si))
-            contains_units = any
             if contains_digit:
                 uni = get_units(si)
                 # which one of those units appears first?
