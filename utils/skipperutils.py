@@ -92,6 +92,7 @@ def let_or_rent(df):
     df["is_rent"] = rent_or_let  # now can be 0=not_rent or 1=rent
     return df
 
+
 def clean_assn_nr(an):
     """
     Is the assessment number a 8 or 9 digit string?
@@ -110,7 +111,7 @@ def clean_assn_nr(an):
     # regex for a string with only zeroes
     zero_pattern = re.compile(r'^[0]+$')
     
-    # has this an already been processed into a list?
+    # has this "an" already been processed into a list?
     if isinstance(an, list) and len(an) == 1:
         if zero_pattern.match(an[0]):
             return 0
@@ -131,8 +132,11 @@ def clean_assn_nr(an):
     else:
         # convert to string for further processing
         an = str(an).strip()
-        if 'vacant land' in an.lower() or 'land' in an.lower():
+        if 'vacant land' in an.lower() or \
+            'land' in an.lower() or \
+            'timeshare' in an.lower():
             return 0
+
     # it's a single assessment number
     if zero_pattern.match(an):  
         return 0
@@ -160,11 +164,12 @@ def clean_assn_nr(an):
         # remove anything that is left which contains letters
         assn_nr = re.sub(r'[a-zA-Z]', '', assn_nr)
         # remove if number precdes assn_nr like '8 122674022'
-        assn_nr = re.sub(r'\d\s', '', assn_nr)
+        assn_nr = re.sub(r'^\d\s', '', assn_nr)
         assn_nr = assn_nr.replace("(", "")
         assn_nr = assn_nr.replace(")", "")
         assn_nr = assn_nr.replace("&", ",")
         list_of_ass_nr = assn_nr.split(",")
+
         if len(list_of_ass_nr) == 0:
             # not a list of assessment numbers
             return 0
@@ -189,6 +194,7 @@ def clean_assn_nr(an):
     else:
         print('NOTHING FOUND FOR Assessment Number', an)
         return 0
+
 
 def clean_address(addr):
     if addr == None:
