@@ -336,24 +336,19 @@ def add_arv_to_ltro(df, lv):
     - one with ARVs that match properties from land valuation
     - one with combined ARVs when more than one assessment number matches
     '''
-    arvs_for_ltro = []
-
-    for _, row in df.iterrows():
+    df['arv'] = ''
+    for k, row in df.iterrows():
         an = skipu.clean_assn_nr(row.assessment_number)
         if an and len(an) == 1: # single assessment number
             try:
                 arv = lv[lv.assessment_number == an[0]].arv.values
+                if len(arv) == 0:
+                    df.at[k, 'arv'] = 0
+                else:
+                    df.at[k, 'arv'] = [arv[0]]
             except:
-                arv = [0]
-            # keep arvs (should be just 1) where something was found
-            if len(arv) == 1: 
-                arvs_for_ltro.extend(arv)
-            elif len(arv) >=1: 
-                # this shouldn't happen (more than 1 ARV for a single Ass. Nr.)
-                # but just in case
-                arvs_for_ltro.append(arv)
-            else: # no ARV found
-                arvs_for_ltro.append(0)
+                df.at[k, 'arv'] = 0
+
         elif an and len(an) > 1: # Multiple assessment numbers
             # get ARVs from landvaluation that match those in LTRO
             arvs = [lv[lv.assessment_number == x].arv for x in an]
@@ -363,16 +358,13 @@ def add_arv_to_ltro(df, lv):
             if len(arvs) > 0:
                 # extract the ARV string
                 arvsp = [x[0] for x in arvs]
-                arvs_for_ltro.append(arvsp)
+                df.at[k, 'arv'] = arvsp
             else: # no arvs in the list
-                arvs_for_ltro.append(0)
+                df.at[k, 'arv'] = 0
         else: # no assessment number
-            arvs_for_ltro.append(0)
-        # sanitity check: df.shape[0] should be len(arvs_for_ltro)
+            df.at[k, 'arv'] = 0
 
-    df['arv'] = arvs_for_ltro
     df['combined_arv'] = df.arv.apply(find_combined_arv)
-
     return df
 
 def clean_property_type(df, lv):
@@ -822,4 +814,81 @@ def clean_addresses_with_norwood(df, nw):
     print("\nProcessing Parcel_IDs ...\n")
     print("Address found for: ", addr_matches)
     print("No match found for: ", no_match, "\n")
+    return df
+
+
+def clean_ARV_with_landvaluation(df, lv):
+    """
+    This function should run following 
+    clean_address_with_norwood(df, nw).
+    It will replace missing ARVs with those from landvaluation
+    This function is applied after new assessment numbers
+    have been added from Norwood.
+    """
+    for k, row in df.iterrows():
+        current_arv = row.arv
+        if current_arv == '0' or current_arv == 0:
+            an = row.assessment_number
+            if an != 0 and an != '0':
+                if len(an) == 1 and type(an) == list:
+                    lv_arv = lv[lv.assessment_number == an[0]].arv.values
+                    if len(lv_arv) == 1:
+                        df.at[k, 'arv'] = lv_arv
+                elif len(an) > 1 and type(an) == str:
+                    clean_an = an.replace('[', '').replace(']', '').replace("'", '').strip()
+                    clean_an = [x.strip() for x in clean_an.split(',')]
+                    if len(clean_an) == 1:
+                        lv_arv = lv[lv.assessment_number == clean_an[0]].arv.values
+                        if len(lv_arv) == 1:
+                            # one ARV has been found in landvaluation
+                            # corresponding to this assessment number
+                            df.at[k, 'arv'] = lv_arv
+                    elif len(clean_an) > 1:
+                        arv_list = []
+                        for an_an in clean_an:
+                            lv_arv = lv[lv.assessment_number == an_an].arv.values
+                            if len(lv_arv) == 1:
+                                arv_list.append(lv_arv[0])
+                        if len(arv_list) > 0:
+                            df.at[k, 'arv'] = arv_list            
+    return df
+
+def remove_ghost_assessment_numbers(df, lv):
+    """
+    many LTRO sales contain assessment numbers which cannot be found 
+    anywhere else at landvaluation (even old dataset). These "ghost" 
+    assessment numbers provide no information and no value.
+
+    This function removes assessment numbers when the number of 
+    assessment numbers in a list doesn't match the number of ARVs
+    and those assessment numbers can't be found in landvaluation
+    """
+    
+    number_of_assessment_numbers = (df.assessment_number
+                                     .astype(str)
+                                     .str.split(',').apply(len)
+                                     .value_counts().index
+                                    )
+    print('ARV does not match number of assessment numbers')
+    print('for {} sales'.format(sum(number_of_assessment_numbers)))
+            
+    for n_of_an in number_of_assessment_numbers:
+        # dataframe showing those sales for which the number of assessment numbers does not match the number of ARVs
+        unmatched_nr_of_an_arv = df[(df.assessment_number.astype(str).str.split(',').apply(len) == n_of_an) & \
+                                    (df.arv.astype(str).str.split(',').apply(len) != n_of_an)]
+        if unmatched_nr_of_an_arv.shape[0] > 0:
+            for i, row in unmatched_nr_of_an_arv.iterrows():
+                if type(row.assessment_number) == list:
+                    an_clean_list = row.assessment_number
+                else:
+                    an_list = row.assessment_number.split(',')
+                    an_clean_list = [x.replace("[","").replace("]","").replace("'","").strip() for x in an_list]
+                for an in an_clean_list:
+                    lv_match = lv[lv.assessment_number == an]
+                    if lv_match.shape[0] == 0:
+                        an_clean_list.remove(an)
+                # update the original sa dataframe with the new assessment number list
+                df.at[i, 'assessment_number'] = str(an_clean_list)
+    print('Removing "ghost" assessment numbers ...')
+
     return df

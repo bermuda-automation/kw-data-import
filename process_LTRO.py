@@ -70,7 +70,7 @@ df = df.replace(np.nan, 0, regex=True)
 
 df["assessment_number"] = df.assessment_number.apply(skipu.clean_assn_nr)
 lv = pd.read_csv("./data/kw-properties.csv", dtype={"assessment_number": str})
-df = LT.add_arv_to_ltro(df,lv)
+df = LT.add_arv_to_ltro(df, lv)
 
 
 # improve sales property type data
@@ -104,8 +104,14 @@ nw = pd.read_csv(NORWOOD_DATA_PATH + "parcel_id_assn_nr_database.csv",
 # final_df = LT.clean_parcel_id_based_addresses(final_df)
 final_df = LT.clean_addresses_with_assessment_number(final_df, lv)
 final_df = LT.clean_addresses_with_norwood(final_df, nw)
+final_df = LT.clean_ARV_with_landvaluation(final_df, lv)
 # Revisit sales data to improve property type
 final_df = LT.clean_property_type(final_df, lv)
+
+# Some sales have "ghost" assessment numbers
+# https://github.com/bermuda-automation/kw-data-import/issues/5
+# remove them
+final_df = LT.remove_ghost_assessment_numbers(final_df, lv)
 
 final_df.to_csv("./data/kw-sales.csv", index=False)
 
