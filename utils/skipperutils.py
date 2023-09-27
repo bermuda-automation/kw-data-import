@@ -153,7 +153,12 @@ def clean_assn_nr(an):
     elif len(an) > 9:
         # it may be a list of assessment numbers
         # remove "&" or "and" and other symbols from the lists
-        assn_nr = an.replace('b','').replace('[','').replace(']','').replace("'","").strip()
+        assn_nr = an.replace('b','') \
+                    .replace('[','') \
+                    .replace(']','') \
+                    .replace("'","") \
+                    .replace(";", ",").replace("/", ",").strip()
+        
         assn_nr = assn_nr.replace(", and", ",")
         assn_nr = assn_nr.replace(",and", ",")
         assn_nr = assn_nr.replace("and", ",")
