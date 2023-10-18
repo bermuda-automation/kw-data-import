@@ -5,6 +5,7 @@ from operator import itemgetter
 
 import pandas as pd
 import numpy as np
+from thefuzz import fuzz
 
 import utils.skipperutils as skipu
 
@@ -305,6 +306,83 @@ def process_duplicates(df):
     
     df = df.drop(marked_for_delete)
     return df
+
+def remove_application_number_duplicates(df):
+    '''
+    Although application numbers should be unique to each sale,
+    There are exceptions, where the acquisition date matches,
+    and most other parameters match, but the registration date
+    and application number has two different values.  We will
+    delete one entry and keep the latest registration date.
+    We will check the following to make the decision:
+    - acquisition date matches
+    - assessment number matches
+    - price matches
+    - address has a high fuzzy match
+    This function is somewhat adhoc to cope with the lack of 
+    consistency in the data entry of LTRO.
+    '''
+    sa_duplicates = df[df.duplicated(subset=['assessment_number', 
+                                             'parish', 
+                                             'price', 
+                                             'acquisition_date', 
+                                             'property_type'], 
+                                             keep=False)].sort_values(by="acquisition_date")
+    seen_indices = []
+    to_delete = []
+    for k, row in sa_duplicates.iterrows():
+        if k in seen_indices:
+            continue
+        dupli = sa_duplicates[(sa_duplicates.assessment_number == row.assessment_number) & (sa_duplicates.price == row.price)]
+        if len(dupli) <= 1:
+            # something happened here
+            # no duplicates found but should be.
+            continue
+        if len(dupli) == 2:
+            # confirm that the addresses are a close match
+            similarity_ratio = fuzz.ratio(dupli.address.values[0],
+                                        dupli.address.values[1])
+            # we assume duplicates are only two
+            if similarity_ratio > 80:
+                # they are close enough we can remove the first one
+                to_delete.append(dupli.index[0])
+                seen_indices.append(dupli.index[1])
+            else:
+                trunc_similarity_ratio = fuzz.ratio(dupli.address.values[0][15:],
+                                        dupli.address.values[1][15:])
+                if trunc_similarity_ratio > 80:
+                    # although the first characters don't coincide,
+                    # they are close enough we can remove the first one
+                    to_delete.append(dupli.index[0])
+                    seen_indices.append(dupli.index[1])
+                    
+                else:
+                    # perhaps fuzzy match is far but end of address and numbers match?
+                    end_similarity_ratio = fuzz.ratio(dupli.address.values[0][-25:],
+                                                    dupli.address.values[1][-25:])
+                    if end_similarity_ratio > 85:
+                        # extract only the numbers using regular expressions
+                        numbers_only_0 = set(re.findall('\d+', dupli.address.values[0]))
+                        numbers_only_1 = set(re.findall('\d+', dupli.address.values[1]))
+                        # print the result
+                        if numbers_only_1 == numbers_only_0:
+                            # both addresses match at the and and contain the same numbers
+                            to_delete.append(dupli.index[0])
+                            seen_indices.append(dupli.index[1])
+
+        else:
+            # too many matches?
+            # can we match with the address and date?
+            addr_dupli = dupli[(dupli.address == row.address) & (dupli.acquisition_date == row.acquisition_date)]
+            if len(addr_dupli) == 2:
+                to_delete.append(dupli.index[0])
+                seen_indices.append(dupli.index[1])
+
+    print('Processed', len(to_delete), 'LTRO Application number duplicates')
+    df = df.drop(to_delete)
+    return df
+
+
 
 def find_combined_arv(arv_list):
     '''

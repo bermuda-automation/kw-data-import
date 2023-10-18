@@ -65,6 +65,8 @@ to_process = df[df['application_number'].duplicated(keep=False)].shape[0]
 df = LT.process_duplicates(df)
 print(to_process, " rows processed for duplicates")
 
+df = LT.remove_application_number_duplicates(df)
+
 # Prepare for next phase by cleaning up assessment numbers
 df = df.replace(np.nan, 0, regex=True)
 
