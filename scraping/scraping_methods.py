@@ -13,13 +13,13 @@ import pandas as pd
 def init_browser(url):
     mycwd = os.getcwd()
     # executable_path = {'executable_path' : mycwd + '/chrome-linux64/chrome'} # chromedriver_110'}
-    executable_path = {'executable_path' : mycwd + '/edgedriver'}
+    executable_path = {'executable_path' : mycwd + '/edgedriver_118'}
     # print(executable_path)
     # I did chmod +x the driver, works for version 106 of chrome
     # make sure to pip install splinter[selenium4]
     # so that selenium can drive the browser
     # browser = Browser('chrome', **executable_path)
-    browser = Browser('edge' , **executable_path)
+    browser = Browser('firefox') #  , **executable_path)
 
     # Open Site
     browser.visit(url)
@@ -28,9 +28,10 @@ def init_browser(url):
 
 def get_parish_data(browser):
     parish_list = browser.find_by_id('ContentPlaceHolder1_ddlParish').text.split('\n')
+    print(parish_list, len(parish_list))
     # value from 1: "City of Hamilton" to 11: "Warwick"
     for i in range(1, 12):
-        parish = parish_list[i].strip()
+        parish = parish_list[i-1].strip()
         # for each number
         browser.find_by_id('ContentPlaceHolder1_ddlParish').select(str(i))
         time.sleep(0.5)
@@ -90,6 +91,12 @@ def process_landval_data():
         nr_processed_so_far += len(extracted)
 
     # delete temp html files
-    files = glob.glob(tmp_dir + "*")
-    for f in files:
-        os.remove(f)
+    # ask for confirmation before deleting
+    delete = input('Ready to delete files? Y/N')
+    if delete == 'Y':
+        print("\nDeleting temp files")
+        files = glob.glob(tmp_dir + "*")
+        for f in files:
+            os.remove(f)
+
+
