@@ -117,7 +117,10 @@ def identify_fractionals(df):
 
     df['property_type'] = ( mode_condition | ass_nr_condition | addr_condition | type_condition )
     # if it's found to be fractional then make sure the property_type is fractional
-    df.loc[df.property_type == True, 'property_type'] = 'fractional'
+    # we cast the column to a string type (to avoid FutureWarning about 
+    # boolean and strings being incompatible in the same column)
+    df['property_type'] = df['property_type'].astype('str')
+    df.loc[df.property_type == 'True', 'property_type'] = 'fractional'
     
     # if it's found to be fractional then make sure the assessment_number is zero.
     # since fractional properties don't have assessment numbers
@@ -378,7 +381,7 @@ def remove_application_number_duplicates(df):
                 to_delete.append(dupli.index[0])
                 seen_indices.append(dupli.index[1])
 
-    print('Processed', len(to_delete), 'LTRO Application number duplicates')
+    print(len(to_delete), 'LTRO Application number duplicates processed')
     df = df.drop(to_delete)
     return df
 
