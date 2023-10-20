@@ -1,5 +1,5 @@
 # functions to clean up landvaluation data
-
+import numpy as np
 from thefuzz import fuzz
 
 def process_and_merge_duplicates(df):
@@ -10,14 +10,15 @@ def process_and_merge_duplicates(df):
     when considering assessment number and address.
     '''
 
-    all_duplicates = df[df.duplicated(subset=['assessment_number', 'address'] )]
+    all_duplicates = df[df.duplicated(subset=['assessment_number', 'address'])]
+    all_duplicates = all_duplicates.replace(np.nan, 0, regex=True)
     print(all_duplicates.shape[0], "partial duplicates found")
 
     if len(all_duplicates) == 0:
         # nothing to do here. No duplicates found
         print("No partial duplicates found")
         return df
-    
+
     duplicates_to_delete = []
     for k, adupe in all_duplicates.iterrows():
         # get a small dataframe with the duplicates matching the current row

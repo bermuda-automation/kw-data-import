@@ -2,6 +2,7 @@ import glob
 import os
 import csv
 import pandas as pd
+import numpy as np
 
 import utils.LTROutils as LT
 import utils.landvalutils as LAV
@@ -30,6 +31,7 @@ df = pd.concat([pd.read_csv(latest_lv_data, dtype={"assessment_number": str}),
                 pd.read_csv(last_scraped_data, dtype={"assessment_number": str})], 
                 ignore_index=True)
 
+
 # 3. Process Duplicates (also further below)
 ##### change to lower
 df["property_type"] = df["property_type"].str.lower().str.strip()
@@ -53,17 +55,26 @@ print("\n", len(df2["property_type"].value_counts()), "property types identified
 
 
 ##### change ARV to numbers
-df2.arv = df2.arv.map(lambda x: int(x.replace(',','').replace('$','')))
+df2.arv = df2.arv.map(lambda x: int(x.replace(',','').replace('$','')) if isinstance(x, str) else x)
+# some ARVs may be NaN, so replace them with 0
+df2.arv = df2.arv.replace(np.nan, 0, regex=True)
 
+#### drop all empty columns & rows ####
+# delete all empty columns & rows
+df2 = df2.dropna(axis=1, how='all')
+df2 = df2.dropna(axis=0, how='all')
 
 ##### Sanity checks
 # Check for Duplicates
-dfarv = df2.drop_duplicates(subset=['assessment_number'], keep=False)
+dfarv = df2.drop_duplicates(subset=['assessment_number'], keep="last")
 if df2.shape[0] != dfarv.shape[0]:
     print("WARNING, THERE SEEM TO BE DUPLICATE ASSESSMENT NUMBERS")
     print("processing duplicates with similar building name:")
     df2 = LAV.process_and_merge_duplicates(df2)
-    print("\n Nr of unique assessment numbers: ", df2.shape[0], "[OK]\n")    
+    if df2.shape[0] < 40000:
+        print("\n Nr of unique assessment numbers: ", df2.shape[0], "[OK]\n")    
+    else:
+        print("WARNING, ", df2.shape[0], "ARE TOO MANY DUPLICATE ASSESSMENT NUMBERS!!")
     
 else:
     print("# of unique assessment numbers: ", df2.shape[0], "[OK]")    
