@@ -90,12 +90,16 @@ else:
 
 # 5. Simplify Parishes
 df2 = LT.simplify_parishes(df2)
+# Remove any assessment number duplicates left (keep the last one)
+df = df2[~df2.assessment_number.duplicated(keep='last')]
+
 
 # Select columns of interest    
-df_for_export = df2[["assessment_number","arv","tax_code","property_type", "address", "grid", "parish", "building_name"]]
+df_for_export = df[["assessment_number","arv","tax_code","property_type", "address", "grid", "parish", "building_name"]]
 # make sure assessment numbers stay as 9 digit strings
 df_for_export.loc[:, 'assessment_number'] = df_for_export['assessment_number'].astype(str)
 # save to CSV
+print(f"{len(df_for_export)} properties exported to CSV")
 df_for_export.to_csv("./data/kw-properties.csv", index=False)
 
 
