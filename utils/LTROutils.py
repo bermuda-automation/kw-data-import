@@ -842,7 +842,12 @@ def clean_addresses_with_norwood(df, nw):
     :return: dataframe with addresses cleaned
     '''
     pattern = re.compile(r'^[A-Z]{2}-\d{1,6}$')
-    deficient_addresses_no_an = df[(df.address.astype(str).str.match(pattern)) & (df.assessment_number == 0)]
+    pattern2 = re.compile(r'^[A-Z]{2}-\d{1,6}/[A-Z]$')
+    pattern3 = re.compile(r'^[A-Z]{2}-\d{1,6}/\d{1}$')
+    deficient_addresses_no_an = df[(df.address.astype(str).str.match(pattern) | \
+                                    df.address.astype(str).str.match(pattern2) | \
+                                    df.address.astype(str).str.match(pattern3)) & \
+                                   (df.assessment_number == 0)]
     addr_matches = []
     no_match = []
 
@@ -972,4 +977,54 @@ def remove_ghost_assessment_numbers(df, lv):
                 df.at[i, 'assessment_number'] = str(an_clean_list)
     print('Removing "ghost" assessment numbers ...')
 
+    return df
+
+
+def clean_addresses_with_landvaluation(df, lv):
+    """
+    Many LTRO addresses are written by hand without consistency
+    If an LTRO sale has a single assessment number, we will
+    substitute the address with the proper landvaluation one.
+    If an LTRO sale has several assessment numbers, we will
+    substitute the address with the address of landvaluation with
+    the largest ARV value.
+    If an LTRO sale has no assessment number, we will try to find
+    a fuzzy match to a landvaluation address and try to substitute it then
+    THIS MAY SUPERSEDE clean_addresses_with_assessment_number
+    """
+    addresses_with_an = df[(df.address.astype(str).str.len() < 10) & (df.assessment_number != 0)]
+     
+    for k, row in deficient_addresses_with_an.iterrows():
+        # grab assessment numbers
+        _anl = row.assessment_number 
+        matches = []
+        for an in _anl:
+            # loop over assessment numbers and look them up in the 
+            # landvaluation dataset.
+            lv[lv.assessment_number == an]
+            matches.append(lv[lv.assessment_number == an])
+        
+        if len(matches) == 1: # one match
+            new_building_name = matches[0].building_name.values[0]
+            if new_building_name == '': # emptry building name
+                new_addr = matches[0].address.values[0]
+            else:
+                new_addr = matches[0].building_name.values[0] + ', ' + matches[0].address.values[0]
+        elif len(matches) > 1: # several matches
+            # are all matches for the same address?
+            _multi_addr = set([matches[i].address.values[0] for i in range(len(matches))])
+            if len(_multi_addr) == 1: # yes, same address
+                # join all distinct building names associated with that address
+                # that were in our list of assessment numbers
+                new_building_name = ', '.join(set([matches[i].building_name.values[0] for i in range(len(matches))]))
+                new_addr = new_building_name + ', ' + matches[0].address.values[0]
+            if len(_multi_addr) == 1: # several addresses (change to > 1)
+                # let's keep only the address with the largest ARV
+                arv_values = [matches[i].arv.values[0] for i in range(len(matches))]
+                max_arv = arv_values.index(max(arv_values))
+                new_building_name = matches[max_arv].building_name.values[0]
+                new_addr = new_building_name + ', ' + matches[max_arv].address.values[0]
+
+        # update dataframe with the new values
+        df.loc[k, 'address'] = new_addr
     return df
