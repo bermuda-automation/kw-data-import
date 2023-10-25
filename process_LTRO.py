@@ -54,10 +54,14 @@ df = df.drop_duplicates(subset=['application_number','registration_date',
                                 'price'], 
                                 keep='first', )
 
+# Some duplicates remain (different application_number, different date but same sale)
+# the last entries have more data, so we keep those
+df = df[~df.duplicated(subset=['address', 'price', 'parish', 'assessment_number'], keep='last')]
+
 print(LTRO_entries - df.shape[0], "duplicates removed")
 
 if df[df['application_number'].duplicated()].shape[0] > 0:
-    print("WARNING, some sales HAVE DUPLICATES")
+    print("WARNING, some sales HAVE DUPLICATES\n")
 
 # keep=False to show all duplicate entries (not just the ones after the first)
 to_process = df[df['application_number'].duplicated(keep=False)].shape[0]
