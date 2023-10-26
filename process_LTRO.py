@@ -113,6 +113,8 @@ final_df = LT.clean_addresses_with_norwood(final_df, nw)
 final_df = LT.clean_ARV_with_landvaluation(final_df, lv)
 # Revisit sales data to improve property type
 final_df = LT.clean_property_type(final_df, lv)
+# final cleanup of addresses
+final_df = LT.clean_addresses_with_landvaluation(final_df, lv)
 
 # Some sales have "ghost" assessment numbers
 # https://github.com/bermuda-automation/kw-data-import/issues/5

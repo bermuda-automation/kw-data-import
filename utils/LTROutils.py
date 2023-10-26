@@ -806,7 +806,7 @@ def clean_addresses_with_assessment_number(df, lv):
         
         if len(matches) == 1: # one match
             new_building_name = matches[0].building_name.values[0]
-            if new_building_name == '': # emptry building name
+            if new_building_name == '' or new_building_name == '\xa0': # emptry building name
                 new_addr = matches[0].address.values[0]
             else:
                 new_addr = matches[0].building_name.values[0] + ', ' + matches[0].address.values[0]
@@ -955,7 +955,7 @@ def remove_ghost_assessment_numbers(df, lv):
                                      .str.split(',').apply(len)
                                      .value_counts().index
                                     )
-    print('ARV does not match number of assessment numbers')
+    print('# of ARVs does not match # of assessment numbers')
     print('for {} sales'.format(sum(number_of_assessment_numbers)))
             
     for n_of_an in number_of_assessment_numbers:
@@ -980,51 +980,143 @@ def remove_ghost_assessment_numbers(df, lv):
     return df
 
 
+def _list_from_assessment_number_string(an):
+    assn_nr = an.replace('[','').replace(']','').replace("'", "").strip()
+    assn_nr_list = [a.strip() for a in assn_nr.split(",")]
+    print(assn_nr_list)
+    return assn_nr_list
+
+def _fuzzy_address_match(addr1, addr2):
+    similarity_ratio = fuzz.ratio(addr1, addr2)
+    return similarity_ratio
+
 def clean_addresses_with_landvaluation(df, lv):
     """
-    Many LTRO addresses are written by hand without consistency
     If an LTRO sale has a single assessment number, we will
     substitute the address with the proper landvaluation one.
     If an LTRO sale has several assessment numbers, we will
-    substitute the address with the address of landvaluation with
-    the largest ARV value.
+    create a full_address with all addresses from landvaluation which
+    match the assessment numbers.
     If an LTRO sale has no assessment number, we will try to find
     a fuzzy match to a landvaluation address and try to substitute it then
     THIS MAY SUPERSEDE clean_addresses_with_assessment_number
     """
-    addresses_with_an = df[(df.address.astype(str).str.len() < 10) & (df.assessment_number != 0)]
-     
-    for k, row in deficient_addresses_with_an.iterrows():
-        # grab assessment numbers
-        _anl = row.assessment_number 
-        matches = []
-        for an in _anl:
-            # loop over assessment numbers and look them up in the 
-            # landvaluation dataset.
-            lv[lv.assessment_number == an]
-            matches.append(lv[lv.assessment_number == an])
-        
-        if len(matches) == 1: # one match
-            new_building_name = matches[0].building_name.values[0]
-            if new_building_name == '': # emptry building name
-                new_addr = matches[0].address.values[0]
-            else:
-                new_addr = matches[0].building_name.values[0] + ', ' + matches[0].address.values[0]
-        elif len(matches) > 1: # several matches
-            # are all matches for the same address?
-            _multi_addr = set([matches[i].address.values[0] for i in range(len(matches))])
-            if len(_multi_addr) == 1: # yes, same address
-                # join all distinct building names associated with that address
-                # that were in our list of assessment numbers
-                new_building_name = ', '.join(set([matches[i].building_name.values[0] for i in range(len(matches))]))
-                new_addr = new_building_name + ', ' + matches[0].address.values[0]
-            if len(_multi_addr) == 1: # several addresses (change to > 1)
-                # let's keep only the address with the largest ARV
-                arv_values = [matches[i].arv.values[0] for i in range(len(matches))]
-                max_arv = arv_values.index(max(arv_values))
-                new_building_name = matches[max_arv].building_name.values[0]
-                new_addr = new_building_name + ', ' + matches[max_arv].address.values[0]
 
-        # update dataframe with the new values
-        df.loc[k, 'address'] = new_addr
+    # define a full address to later store the normative address
+    df["full_address"] = df["address"]
+
+    for k, row in df.iterrows():
+        an = row.assessment_number
+
+        # make sure it comes in list form
+        if type(an) == str:
+            assn_nr_list = _list_from_assessment_number_string(an)
+        elif type(an) == list:
+            assn_nr_list = an
+        elif an == 0:
+            assn_nr_list = ['0']
+
+        if assn_nr_list[0] != '0':
+            # use assessment number to find a well defined address from lv.
+            if len(assn_nr_list) == 1:
+                # The sale has a single assessment number
+                lv_an_match = lv[lv.assessment_number == assn_nr_list[0]]
+                if len(lv_an_match) == 1:
+                    # single match
+                    if lv_an_match.building_name.values[0] == '\xa0':
+                        lv_addr = lv_an_match.address.values[0]
+                    else:
+                        lv_addr = f"{lv_an_match.building_name.values[0]}, {lv_an_match.address.values[0]}"
+                    if _fuzzy_address_match(lv_addr, row.address) > 55:
+                        # replace LTRO address with the normative address from landvaluation
+                        df.loc[k, 'address'] = lv_addr
+                        df.loc[k, 'full_address'] = lv_addr
+                        df.loc[k, 'arv'] = lv_an_match.arv.values
+                        df.loc[k, 'combined_arv'] = lv_an_match.arv.values.sum()
+                    else:
+                        pass
+                        # leave address as is. (This seems like an LTRO error, 
+                        # address and assessment number don't match, 
+                        # but we don't know which is wrong)
+                if len(lv_an_match) > 1:
+                    # multiple matches in landvaluation
+                    # this should not happen
+                    print("[WARNING] ==> Landvaluation properties have duplicates")
+                    print("This should not happen. Check the lv code")
+                elif len(lv_an_match) == 0:
+                    pass
+                    # LTRO probably input the assessment number incorrectly. 
+                    # so there is no assn_nr match on the lv database.
+                    # We just ignore them (although the addresses do appear in lv).
+            if len(assn_nr_list) > 1:
+                # the sale has multiple assessment numbers
+                lv_an_match = lv[lv.assessment_number.isin(assn_nr_list)]
+                # create a full address which combines the multiple properties
+                # associated with each assessment number in the sale
+                addresses_and_buildings = [f"{bu}, {ad}" for ad,bu in zip(lv_an_match.address, lv_an_match.building_name)]
+                full_address = "\n".join(addresses_and_buildings)
+
+                df.loc[k, 'full_address'] = full_address
+                df.loc[k, 'arv'] = str([x for x in lv_an_match.arv.values])
+                df.loc[k, 'combined_arv'] = lv_an_match.arv.values.sum() 
+
+        elif assn_nr_list[0] == '0' and row.address != '0' and row.address != 0:
+            # No assessment number to identify the property
+            # is there a good match based only on the address?
+            lv_addr_match = lv[lv.address == row.address]
+            if len(lv_addr_match) >= 1:
+                # lucky match!
+
+                addresses_and_buildings = [f"{bu}, {ad}" for ad,bu in zip(lv_an_match.address, lv_an_match.building_name)]
+                full_address = "\n".join(addresses_and_buildings)
+                new_assn_nrs = [an_an for an_an in lv_addr_match.assessment_number.values]
+                new_arvs = [x for x in lv_addr_match.arv.values]
+                
+                df.loc[k, 'full_address'] = full_address
+                df.loc[k, 'assessment_number'] = str(new_assn_nrs)
+                df.loc[k, 'arv'] = str(new_arvs)
+                df.loc[k, 'combined_arv'] = lv_addr_match.arv.values.sum()
+
+            elif len(lv_addr_match) == 0:
+                # the address is not present verbatim
+                # in the landvaluation database.
+                # can we do a more subtle match?
+                print('---------->', row.address)
+                lv_partial_addr_match = lv[lv.address.str.contains(row.address, regex=False)]
+                if len(lv_partial_addr_match) >= 1:
+                    addresses_and_buildings = [f"{bu}, {ad}" for ad,bu in zip(lv_an_match.address, lv_an_match.building_name)]
+                    full_address = "\n".join(addresses_and_buildings)
+                    new_assn_nrs = [an_an for an_an in lv_addr_match.assessment_number.values]
+                    new_arvs = [x for x in lv_addr_match.arv.values]
+                    
+                    df.loc[k, 'full_address'] = full_address
+                    df.loc[k, 'assessment_number'] = str(new_assn_nrs)
+                    df.loc[k, 'arv'] = str(new_arvs)
+                    df.loc[k, 'combined_arv'] = lv_addr_match.arv.values.sum()
+                else:
+                    # no partial address match with "contains"
+                    # can we try to match with the begginning of the address?
+                    # remove address after last comma
+                    addr_begining = ",".join(row.address.split(',')[:-1])
+                    if len(addr_begining) > 10:
+                        # check that "something" is left after removing the last comma
+                        lv_partial_addr_match = lv[lv.address.str.contains(addr_begining, regex=False)]
+                        if len(lv_partial_addr_match) == 1:
+                            # single match. Very likely to be right
+                            final_filter = lv_partial_addr_match[lv_partial_addr_match.parish == row.parish]
+                            if len(final_filter) == 1:
+                                df.loc[k, 'full_address'] = final_filter.address.values[0]
+                                df.loc[k, 'assessment_number'] = final_filter.assessment_number.values[0]
+                                df.loc[k, 'arv'] = final_filter.arv.values[0]
+                                df.loc[k, 'combined_arv'] = final_filter.arv.values[0]
+                        else:
+                            # several properties from landvaluation match the address
+                            # but we don't have more information to make a decision.
+                            final_filter = lv_partial_addr_match[lv_partial_addr_match.parish == row.parish]
+                            if len(final_filter) == 1 and row.parish != '0':
+                                df.loc[k, 'full_address'] = final_filter.address.values[0]
+                                df.loc[k, 'assessment_number'] = final_filter.assessment_number.values[0]
+                                df.loc[k, 'arv'] = final_filter.arv.values[0]
+                                df.loc[k, 'combined_arv'] = final_filter.arv.values[0]
     return df
+
