@@ -1081,7 +1081,6 @@ def clean_addresses_with_landvaluation(df, lv):
                 # the address is not present verbatim
                 # in the landvaluation database.
                 # can we do a more subtle match?
-                print('---------->', row.address)
                 lv_partial_addr_match = lv[lv.address.str.contains(row.address, regex=False)]
                 if len(lv_partial_addr_match) >= 1:
                     addresses_and_buildings = [f"{bu}, {ad}" for ad,bu in zip(lv_an_match.address, lv_an_match.building_name)]
