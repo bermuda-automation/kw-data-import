@@ -1,10 +1,11 @@
 # Scripts for data import
 
 ## Sources
-The data comes from 3 sources:
+The data comes from 4 sources:
 
 - landvaluation.bm (updated rarely - every 6 months maybe)
 - propertyskipper.com (updated daily)
+- skipperstats (updated monthly)
 - LTRO (Land Title Registry) (updated every 2 or 3 months)
 
 ## Data Structure
@@ -45,12 +46,17 @@ Preparing the data is divided into 3 scripts:
    * input: `LTRO_2018_2022.xlsx` and `LTRO_2018.csv`
    * ouput: `kw-sales.csv`
 
+4. `process_skipperstats.py` (to ve run every month)
+    * input: `Web API`
+    * output: `kw-skipper-stats-sales.csv`
 
-To seed the final database, we will use the 4 `.csv` files:
+
+To seed the final database, we will use the 5 `.csv` files:
 - `kw-properties.csv`
 - `kw-skipper_properties.csv`
 - `kw-listings.csv`
 - `kw-sales.csv`
+- `kw-skipper-stats-sales.csv`
 
 
 ## Details of each script:
