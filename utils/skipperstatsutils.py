@@ -5,6 +5,8 @@ import subprocess
 from thefuzz import fuzz
 from pyproj import CRS, Transformer
 
+from dateutil.parser import parse
+
 import pandas as pd
 import xml.etree.ElementTree as ET
 
@@ -193,6 +195,7 @@ def clean_up_skipperstats_data(df):
     df = df[~(df.price == 0.0)]
 
 
+
 def _fuzzy_address_match(addr1, addr2):
     """
     Compares two address strings using the fuzzywuzzy library.
@@ -241,7 +244,22 @@ def _fuzzy_address_match(addr1, addr2):
                 return False, end_similarity_ratio
     else:
         return False, similarity_ratio
-    
+
+
+def parse_mixed_dates(date_str):
+    try:
+        return parse(date_str, dayfirst=False, yearfirst=False)
+    except (ValueError, TypeError):
+        # If dateutil fails, try custom parsing
+        if pd.isna(date_str) or date_str == '0':
+            return pd.NaT
+        if 'jUNE' in date_str:
+            date_str = date_str.replace('jUNE', 'Jun')
+            return parse(date_str, dayfirst=True, yearfirst=False)
+        else:
+            return pd.NaT
+
+
 def date_filter_for_sss_LTRO_duplicates(df, sa):
     """ SSS (Skipper Stats Sales) | LTRO (Land Title Registry)
     this function uses the LTRO sales dataframe 
@@ -254,7 +272,7 @@ def date_filter_for_sss_LTRO_duplicates(df, sa):
 
     # Make sure date are in comparable formats
     sa['registration_date'] = pd.to_datetime(sa['registration_date'])
-    sa['acquisition_date'] = pd.to_datetime(sa['acquisition_date'], errors='coerce')
+    sa['acquisition_date'] = sa['acquisition_date'].apply(parse_mixed_dates)
     df['transaction_date'] = pd.to_datetime(df['transaction_date'])
 
     # Make sure assessment numbers are in comparable formats

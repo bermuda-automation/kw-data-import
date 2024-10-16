@@ -21,8 +21,10 @@ url = keys.get("skipperstats", "URL")
 # define file to save to
 today = datetime.today()
 transactions = 'data/skipper/transactions/{}-{:02d}-{:02d}_transactions.xml'.format(today.year, today.month, today.day)
-# Get data from web as XML
-SSU.get_xml_with_wget(url, transactions)
+# if file exists for today, don't download again
+if not os.path.exists(transactions):
+    # Get data from web as XML
+    SSU.get_xml_with_wget(url, transactions)
 
 ###### Open last downloaded file
 xml_downloads = glob.glob('./data/skipper/transactions/*.xml') 
