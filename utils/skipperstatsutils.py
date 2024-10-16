@@ -1,5 +1,6 @@
 import hashlib
 import re
+import subprocess
 
 from thefuzz import fuzz
 from pyproj import CRS, Transformer
@@ -8,6 +9,15 @@ import pandas as pd
 import xml.etree.ElementTree as ET
 
 
+def get_xml_with_wget(url, output_file):
+    try:
+        subprocess.run(["wget", "-O", output_file, url], check=True)
+        print(f"Successfully downloaded to {output_file}")
+        with open(output_file, 'r') as f:
+            return f.read()
+    except subprocess.CalledProcessError as e:
+        print(f"Error downloading: {e}")
+        return None
 
 
 def transaction_xml_to_dataframe(xml_file):
