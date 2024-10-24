@@ -14,22 +14,64 @@ import utils.landvalutils as LAV
 # 4. use standard property_type
 # 5. use standard parishes
 
-
-# 1. Have new properties been added by scraping?
-# If so, add them to the latest_landvaluation_data.csv file
-# concatenate the two csv files and then remove duplicates
-
 files_from_scraping = glob.glob('./scraping/*.csv') 
 # get the file which was last modified
-last_scraped_data = max(files_from_scraping, key=os.path.getmtime)
+last_scraped_data_file = max(files_from_scraping, key=os.path.getmtime)
+scraped = pd.read_csv(last_scraped_data_file, dtype={"assessment_number": str})
 
+latest_lv_data_file = "./data/landvaluation/latest_landvaluation_data.csv"
+df = pd.read_csv(latest_lv_data_file, dtype={"assessment_number": str})
 
-latest_lv_data = "./data/landvaluation/latest_landvaluation_data.csv"
+# 1. Have new properties been added by scraping?
+# If so, 
+# - let's find which assessment_numbers have modified values
+# - let's maintain old assessment_numbers even if they are not in landvaluation anymore
+#    (for the record, we want to keep the old values)
+# - let's add the new assessment_numbers to the latest_landvaluation_data.csv file
 
-# 2. Import both files and concatenate them
-df = pd.concat([pd.read_csv(latest_lv_data, dtype={"assessment_number": str}), 
-                pd.read_csv(last_scraped_data, dtype={"assessment_number": str})], 
-                ignore_index=True)
+# Ensure 'assessment_number' is the index for both DataFrames
+# so we can use vectorized operations
+scraped.set_index('assessment_number', inplace=True)
+scraped = scraped.sort_index()
+
+df.set_index('assessment_number', inplace=True)
+df = df.sort_index()
+
+# Ensure both DataFrames have the same columns
+fields_to_compare = ['arv', 'tax_code', 'property_type', 'address', 'grid', 'parish', 'building_name']
+scraped = scraped[fields_to_compare]
+df = df[fields_to_compare]
+
+# To compare the dataframes, we need to have the same assessment numbers
+df_coincide = df.copy(deep=True)
+df_coincide = df_coincide[df_coincide.index.isin(scraped.index)]
+
+scraped_coincide = scraped.copy(deep=True)
+scraped_coincide = scraped_coincide[scraped_coincide.index.isin(df.index)]
+
+# mask with changed fields using vectorized operations
+changed_fields_mask = (scraped_coincide != df_coincide).any(axis=1)
+# Update only the changed fields
+df.update(scraped_coincide.loc[changed_fields_mask, fields_to_compare])
+
+# reset index for df
+df["assessment_number"] = df.index
+df.reset_index(drop=True, inplace=True)
+
+# reset index for scraped
+scraped["assessment_number"] = scraped.index
+scraped.reset_index(drop=True, inplace=True)
+            
+# 2. add the new assessment numbers
+# Find assessment numbers in df that are not in df23
+new_assessment_numbers = scraped[~scraped['assessment_number'].isin(df['assessment_number'])]
+# Add these new entries to new_df
+df = pd.concat([df, new_assessment_numbers], ignore_index=True)
+# reset index
+df.reset_index(drop=True, inplace=True)
+
+print(f"Added {len(new_assessment_numbers)} new properties to the dataset.")
+print(f"The dataset now has {len(df)} properties.")
 
 
 # 3. Process Duplicates (also further below)
@@ -93,9 +135,11 @@ df2 = LT.simplify_parishes(df2)
 # Remove any assessment number duplicates left (keep the last one)
 df = df2[~df2.assessment_number.duplicated(keep='last')]
 
+# 6. Create a column with the property name.
+df["property_name"] = df.apply(LAV.create_property_name, axis=1)
 
 # Select columns of interest    
-df_for_export = df[["assessment_number","arv","tax_code","property_type", "address", "grid", "parish", "building_name"]]
+df_for_export = df[["assessment_number","arv","tax_code","property_type", "address", "grid", "parish", "building_name", "property_name"]]
 # make sure assessment numbers stay as 9 digit strings
 df_for_export.loc[:, 'assessment_number'] = df_for_export['assessment_number'].astype(str)
 # save to CSV

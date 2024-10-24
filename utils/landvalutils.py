@@ -1,5 +1,6 @@
 # functions to clean up landvaluation data
 import numpy as np
+import pandas as pd
 from thefuzz import fuzz
 
 def process_and_merge_duplicates(df):
@@ -62,3 +63,55 @@ def process_and_merge_duplicates(df):
     print(len(duplicates_to_delete), "partial duplicates removed")
     df = df.drop(duplicates_to_delete)
     return df
+
+
+def create_property_name(row):
+    bn = row.building_name
+    bn = bn.lower().strip()
+    # check if building_name is empty
+    if pd.isna(row .building_name) or row.building_name == '\xa0':
+        # capitalize the first letter of the property_type
+        property_str = f"{row.property_type.capitalize()} at"
+        property_str += f" {row.address.split(',')[0]}"
+        property_str += f" {row.parish}"
+        return property_str
+    elif bn == "island":
+        property_str = f"Island at"
+        property_str += f" {row.address.split(',')[0]},"
+        property_str += f" {row.parish}"
+        return property_str
+    elif 'apt' in bn and len(bn) <= 16:
+        property_str = f"{bn.capitalize()}, "
+        property_str += f" {row.address.split(',')[0]}"
+        return property_str
+    elif 'main' in bn and len(bn) <= 16:
+        property_str = f"{bn.capitalize()}, "
+        property_str += f" {row.address.split(',')[0]}"
+        return property_str
+    elif 'apartment' in bn and len(bn) <= 16:
+        property_str = f"{bn.capitalize()}, "
+        property_str += f" {row.address.split(',')[0]}"
+        return property_str
+    elif 'unit' in bn and len(bn) <= 15:
+        property_str = f"{bn.capitalize()}, "
+        property_str += f" {row.address.split(',')[0]}"
+        return property_str
+    elif 'condominium' in bn and len(bn) <= 20:
+        property_str = f"{bn.capitalize()}, "
+        property_str += f" {row.address.split(',')[0]}"
+        return property_str
+    elif 'shop' in bn and len(bn) <= 15:
+        property_str = f"{bn.capitalize()}, "
+        property_str += f" {row.address.split(',')[0]}"
+        return property_str
+    elif 'house' in bn and len(bn) <= 15:
+        property_str = f"{bn.capitalize()}, "
+        property_str += f" {row.address.split(',')[0]}"
+        return property_str
+    elif 'floor' in bn and len(bn) <= 15:
+        property_str = f"{bn.capitalize()}, "
+        property_str += f" {row.address.split(',')[0]}"
+        return property_str
+    
+    else:
+        return row.building_name
