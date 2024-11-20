@@ -18,17 +18,19 @@ from utils.LTROutils import NORWOOD_DATA_PATH
 DATA_18_22 = "./data/LTRO/LTRO_2018_2022.xlsx"
 DATA_18_PROCESSED = "./data/LTRO/LTRO_2018.csv"
 DATA_22 = "./data/LTRO/LTRO_2022.xlsx"
+DATA_24 = "./data/LTRO/LTRO_2024.xlsx"
 
 df = pd.read_excel(DATA_18_22, header=None, skiprows=9)
 older_ltro = pd.read_csv(DATA_18_PROCESSED)
 dflast =  pd.read_excel(DATA_22, header=None, skiprows=9)
-
+df24 =  pd.read_excel(DATA_24, header=None, skiprows=9)
 # 2. Clean Files
 df = LT.clean_ltro_data(df)
 dflast = LT.clean_ltro_data(dflast)
+df24 = LT.clean_ltro_data(df24)
 
-# combine all 3 files
-df = pd.concat([older_ltro, df, dflast])
+# combine all 4 files
+df = pd.concat([older_ltro, df, dflast, df24])
 # if there were any NaN convert them to zero
 df = df.replace(np.nan, 0, regex=True)
 df['registration_date'] =  pd.to_datetime(df['registration_date'], format='%Y-%m-%d').dt.date
@@ -120,6 +122,10 @@ final_df = LT.clean_addresses_with_landvaluation(final_df, lv)
 # https://github.com/bermuda-automation/kw-data-import/issues/5
 # remove them
 final_df = LT.remove_ghost_assessment_numbers(final_df, lv)
+
+# remove duplicates with a difference in registration date of less than 4 months
+# as long as the price, address and assessment number are the same for the two records
+final_df = LT.remove_close_duplicate_sales(final_df)
 
 final_df.to_csv("./data/kw-sales.csv", index=False)
 

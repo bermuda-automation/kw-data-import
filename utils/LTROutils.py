@@ -61,7 +61,8 @@ def clean_ltro_data(df):
     
     # Remove properties which are unidentifiable:
     # - have no assessment number 
-    # - have assessment number "unknown"
+    # AND
+    # - have assessment number "unknown" or "0"
 
     df = df.drop(df[(df.address.str.len() <= 4) & (df.assessment_number == 0)].index)
     df = df.drop(df[(df.address.str.len() <= 4) & (df.assessment_number == "Unknown")].index) 
@@ -948,6 +949,8 @@ def remove_ghost_assessment_numbers(df, lv):
     This function removes assessment numbers when the number of 
     assessment numbers in a list doesn't match the number of ARVs
     and those assessment numbers can't be found in landvaluation
+
+    We finally remove sales with assessment number 0 and address 0.
     """
     
     number_of_assessment_numbers = (df.assessment_number
@@ -976,6 +979,9 @@ def remove_ghost_assessment_numbers(df, lv):
                 # update the original sa dataframe with the new assessment number list
                 df.at[i, 'assessment_number'] = str(an_clean_list)
     print('Removing "ghost" assessment numbers ...')
+    # remove sales with assessment number 0 and address 0
+    df = df[~((df.assessment_number == '0') & (df.address == '0'))]
+    df = df[~((df.assessment_number == 0) & (df.address == 0))]
 
     return df
 
@@ -1057,7 +1063,7 @@ def clean_addresses_with_landvaluation(df, lv):
                 full_address = "\n".join(addresses_and_buildings)
 
                 df.loc[k, 'full_address'] = full_address
-                df.loc[k, 'arv'] = str([x for x in lv_an_match.arv.values])
+                df.loc[k, 'arv'] = str([int(x) for x in lv_an_match.arv.values])
                 df.loc[k, 'combined_arv'] = lv_an_match.arv.values.sum() 
 
         elif assn_nr_list[0] == '0' and row.address != '0' and row.address != 0:
@@ -1119,3 +1125,29 @@ def clean_addresses_with_landvaluation(df, lv):
                                 df.loc[k, 'combined_arv'] = final_filter.arv.values[0]
     return df
 
+def remove_close_duplicate_sales(df):
+    """
+    This function removes duplicates with a difference in registration date of less than 4 months
+    Sometimes LTRO seems to record the same sale twice with different registration dates and 
+    registration numbers.  Here we remove the duplicates with a difference in registration date of less than 4 months.
+    as long as the price, address and assessment number are the same for the two records.
+    """
+
+    # Create a copy of the dataframe with assessment_number converted to string
+    df_check = df.copy()
+    df_check['assessment_number'] = df_check['assessment_number'].astype(str)
+    # Find duplicates based on assessment_number, price and full_address
+    duplicates = df_check[df_check.duplicated(subset=['assessment_number', 'price', 'full_address'], keep=False)]
+    # Sort duplicates by assessment_number to group them together
+    duplicates = duplicates.sort_values('assessment_number')
+    # delete duplicates with a difference in registration date of less than 4 months
+    duplicates['registration_date'] = pd.to_datetime(duplicates['registration_date'])
+    duplicate_to_delete = []
+    for i in range(len(duplicates)):
+        if i % 2 != 0:
+            if abs((duplicates.iloc[i].registration_date - duplicates.iloc[i-1].registration_date).days / 30.44)< 4:
+                # verify that consecutive lines have the same assessment number:
+                if duplicates.iloc[i].assessment_number == duplicates.iloc[i-1].assessment_number:
+                    duplicate_to_delete.append(duplicates.iloc[i].name)
+    df.drop(duplicate_to_delete, inplace=True)
+    return df
