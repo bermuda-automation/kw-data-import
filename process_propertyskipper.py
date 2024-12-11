@@ -1,11 +1,13 @@
 """Module to process property skipper data"""
-
+import os
 import configparser
+from datetime import datetime
 
 import pandas as pd
 import numpy as np
 
 import utils.skipperutils as skipu
+import utils.skipperstatsutils as SSU
 import utils.LTROutils as LT
 
 # Get secret URL API
@@ -13,8 +15,18 @@ keys = configparser.ConfigParser()
 keys.read("./utils/kw_config.txt")
 url = keys.get("skipper", "URL")
 
-# download XML and convert to CSV
-csv_data = skipu.download_skipper_xml(url)
+# define file to save to
+today = datetime.today()
+skipper_properties = 'data/skipper/{}-{:02d}-{:02d}_skipper_properties.xml'.format(today.year, today.month, today.day)
+# if file exists for today, don't download again
+if not os.path.exists(skipper_properties):
+    # Get data from web as XML
+    SSU.get_xml_with_wget(url, skipper_properties)
+
+print(skipper_properties)
+
+# Open XML and convert to CSV
+csv_data = skipu.download_skipper_xml(skipper_properties)
 # csv_data = 'data/skipper/2023-08-14_skipper_properties.csv'
 print("\nLast XML downloaded and saved to ./data/skipper/ \n")
 
@@ -85,4 +97,4 @@ listing = df[["reference", "skipper_id","date_added", "date_relisted",
 
 skipper_property.to_csv("./data/kw-skipper_properties.csv", index=False)
 listing.to_csv("./data/kw-listings.csv", index=False)
-print("Export Files exported to CSV into ./data/ \n")
+print("kw-skipper_properties.csv and kw-listings.csv exported to CSV into ./data/ \n")
