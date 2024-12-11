@@ -5,29 +5,15 @@ import re
 import xml.etree.ElementTree as ET
 from datetime import datetime
 
-import requests 
 import pandas as pd
 
-def download_skipper_xml(url):
+def download_skipper_xml(xml_file):
     """
-    Opens url with API endpoint which is an XML file
-    downloads XML, parses it and converts it to CSV
+    Opens local XML, parses it and converts it to CSV
     returns: location and name of CSV file, for example:
     `data/skipper/2022-9-14_skipper_properties.csv`
     """
-
-    # Get data from web as XML
-    resp = requests.get(url)
-    property_data = resp.content
-    
-    # define file to save to
-    today = datetime.today()
-    datafile = 'data/skipper/{}-{:02d}-{:02d}_skipper_properties.xml'.format(today.year, today.month, today.day)
-    # Save data to local file
-    with open(datafile, 'wb') as f:
-        f.write(resp.content)
-        # create element tree object
-    tree = ET.parse(datafile)
+    tree = ET.parse(xml_file)
     # get root element
     root = tree.getroot()
     # read XML and save to CSV
@@ -79,8 +65,6 @@ def download_skipper_xml(url):
         writer.writeheader()
         # writing data rows
         writer.writerows(all_properties)
-    # delete downloaded XML file
-    os.remove(datafile)
     return csvdata
 
 def let_or_rent(df):

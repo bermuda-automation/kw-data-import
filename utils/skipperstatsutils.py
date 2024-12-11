@@ -195,7 +195,6 @@ def clean_up_skipperstats_data(df):
     df = df[~(df.price == 0.0)]
 
 
-
 def _fuzzy_address_match(addr1, addr2):
     """
     Compares two address strings using the fuzzywuzzy library.
@@ -218,7 +217,11 @@ def _fuzzy_address_match(addr1, addr2):
 
     numbers_only_0 = set(re.findall('\d+', addr1))
     numbers_only_1 = set(re.findall('\d+', addr2))
-    number_match_ratio = len(numbers_only_0.intersection(numbers_only_1))/len(numbers_only_0)
+    if len(numbers_only_0) == 0 or len(numbers_only_1) == 0:
+        # avoid division by zero
+        return False, 0
+    else:
+        number_match_ratio = len(numbers_only_0.intersection(numbers_only_1))/len(numbers_only_0)
 
     similarity_ratio = fuzz.ratio(addr1, addr2)
 
