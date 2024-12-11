@@ -989,7 +989,6 @@ def remove_ghost_assessment_numbers(df, lv):
 def _list_from_assessment_number_string(an):
     assn_nr = an.replace('[','').replace(']','').replace("'", "").strip()
     assn_nr_list = [a.strip() for a in assn_nr.split(",")]
-    print(assn_nr_list)
     return assn_nr_list
 
 def _fuzzy_address_match(addr1, addr2):
@@ -1131,6 +1130,9 @@ def remove_close_duplicate_sales(df):
     Sometimes LTRO seems to record the same sale twice with different registration dates and 
     registration numbers.  Here we remove the duplicates with a difference in registration date of less than 4 months.
     as long as the price, address and assessment number are the same for the two records.
+    - we also remove duplicates with the SAME application_number and registration_date.
+    :param df: dataframe with sales data
+    :return: dataframe with duplicates removed
     """
 
     # Create a copy of the dataframe with assessment_number converted to string
@@ -1150,4 +1152,16 @@ def remove_close_duplicate_sales(df):
                 if duplicates.iloc[i].assessment_number == duplicates.iloc[i-1].assessment_number:
                     duplicate_to_delete.append(duplicates.iloc[i].name)
     df.drop(duplicate_to_delete, inplace=True)
+
+    # remove one of the duplicates with the SAME application_number and registration_date.
+    # potential improvement: keep the one with the most data.
+    df = df[~df.duplicated(subset=['application_number', 'registration_date'], keep='first')]
+
+    # remove duplicates with the SAME application_number and registration_date.
+    # potential improvement: keep the one with the most data.
+    df = df[~df.duplicated(subset=['application_number', 'registration_date'], keep='first')]
+    
+
+
     return df
+
