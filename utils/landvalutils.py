@@ -112,6 +112,9 @@ def create_property_name(row):
         property_str = f"{bn.capitalize()}, "
         property_str += f" {row.address.split(',')[0]}"
         return property_str
-    
+    elif 'studio' in bn and len(bn) <= 15:
+        property_str = f"{bn.capitalize()}, "
+        property_str += f" {row.address.split(',')[0]}"
+        return property_str
     else:
         return row.building_name

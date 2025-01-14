@@ -7,7 +7,6 @@ import numpy as np
 import pandas as pd
 
 import utils.skipperstatsutils as SSU
-import utils.skipperutils as SU
 import utils.LTROutils as LT 
 
 # Get secret URL API
