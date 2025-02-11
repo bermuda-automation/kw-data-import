@@ -5,6 +5,7 @@ This directory contains 3 subdirectories
 - `landvaluation`
 - `LTRO`
 - `skipper`
+- `kw-data`
 
 Those contain source files which are read for processing.
 
