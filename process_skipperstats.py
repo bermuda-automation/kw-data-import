@@ -121,4 +121,8 @@ print('\n there are {} new distinct sales from Skipper Stats'.format(len(sss)))
 sss.drop(['is_land', 'is_fractional_unit'], axis=1, inplace=True)
 df = df.rename(columns={'arv_default': 'arv', 'transaction_date': 'registration_date',})
 
+################  FIX NO NAME BUILDINGS ################
+sss = SSU.fix_no_name_buildings(sss, lv)
+print("adding names to properties where missing")
+
 sss.to_csv("./data/kw-skipper-stats-sales.csv", index=False)

@@ -598,3 +598,24 @@ def add_bermuda_grid(df):
     df['grid'] = grid
     print(" -> Bermuda grid with 'Northing' and 'Easting' added.\n")
     return df
+
+def fix_no_name_buildings(df, lv):
+    """
+    Takes buildings with no name and adds a name based on:
+    - a match in the landvaluation database
+    - the address and building type fields
+    """
+    mask = (df.building_name == "0") | (df.building_name == "N/A") | (df.building_name.isna())
+    # iterate over the rows in sss that don't have a name
+    for idx in df[mask].index:
+        match = lv[lv.assessment_number == df.loc[idx, 'assessment_number']]
+        if len(match) > 0:
+            if len(match.building_name.values[0]) > 2:
+                # building name found at landvaluation database
+                df.loc[idx, 'building_name'] = match.building_name.values[0]
+            else:
+                # building name not found at landvaluation database
+                building_name = df.loc[idx, 'property_type'] + " at " + df.loc[idx, 'address_line'].split(",")[0]
+                df.loc[idx, 'building_name'] = building_name
+
+    return df
