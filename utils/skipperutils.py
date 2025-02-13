@@ -110,7 +110,7 @@ def clean_assn_nr(an):
             an = str(an).strip()
         elif all(pattern.match(x) for x in an):
             # all elements in the an list have the correct format
-            return an
+            return list(set(an))
         else: # for example: an =  ['122674022 and 122674111', '123123123']
             an = str(an).strip()
     else:
@@ -177,7 +177,7 @@ def clean_assn_nr(an):
                 # did we end up with an empty list?
                 return 0
             else:
-                return an_list
+                return list(set(an_list))
     elif len(an) <= 7:
         return 0
     else:
