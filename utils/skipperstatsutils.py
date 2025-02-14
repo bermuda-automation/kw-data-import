@@ -605,7 +605,8 @@ def fix_no_name_buildings(df, lv):
     - a match in the landvaluation database
     - the address and building type fields
     """
-    mask = (df.building_name == "0") | (df.building_name == "N/A") | (df.building_name.isna())
+    mask = (df.building_name == "0") | (df.building_name == "N/A") | (df.building_name.isna()) | (df.building_name == 0)
+    print("\n",df[mask].shape[0], "buildings with no name")
     # iterate over the rows in sss that don't have a name
     for idx in df[mask].index:
         match = lv[lv.assessment_number == df.loc[idx, 'assessment_number']]
@@ -618,4 +619,6 @@ def fix_no_name_buildings(df, lv):
                 building_name = df.loc[idx, 'property_type'] + " at " + df.loc[idx, 'address_line'].split(",")[0]
                 df.loc[idx, 'building_name'] = building_name
 
+    mask = (df.building_name == "0") | (df.building_name == "N/A") | (df.building_name.isna()) | (df.building_name == 0)
+    print(df[mask].shape[0], "buildings with no name after fixing")
     return df

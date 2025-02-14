@@ -123,6 +123,5 @@ df = df.rename(columns={'arv_default': 'arv', 'transaction_date': 'registration_
 
 ################  FIX NO NAME BUILDINGS ################
 sss = SSU.fix_no_name_buildings(sss, lv)
-print("adding names to properties where missing")
 
 sss.to_csv("./data/kw-skipper-stats-sales.csv", index=False)
