@@ -337,7 +337,8 @@ def remove_application_number_duplicates(df):
     for k, row in sa_duplicates.iterrows():
         if k in seen_indices:
             continue
-        dupli = sa_duplicates[(sa_duplicates.assessment_number == row.assessment_number) & (sa_duplicates.price == row.price)]
+        dupli = sa_duplicates[(sa_duplicates.assessment_number == row.assessment_number) \
+                              & (sa_duplicates.price == row.price)]
         if len(dupli) <= 1:
             # something happened here
             # no duplicates found but should be.
@@ -366,8 +367,8 @@ def remove_application_number_duplicates(df):
                                                     dupli.address.values[1][-25:])
                     if end_similarity_ratio > 85:
                         # extract only the numbers using regular expressions
-                        numbers_only_0 = set(re.findall('\d+', dupli.address.values[0]))
-                        numbers_only_1 = set(re.findall('\d+', dupli.address.values[1]))
+                        numbers_only_0 = set(re.findall(r'\d+', dupli.address.values[0]))
+                        numbers_only_1 = set(re.findall(r'\d+', dupli.address.values[1]))
                         # print the result
                         if numbers_only_1 == numbers_only_0:
                             # both addresses match at the and and contain the same numbers
@@ -676,111 +677,6 @@ def simplify_parishes(df):
         print("ERROR: No column named 'city' or 'parish' found in dataframe")
     return df
         
-def clean_parcel_id_based_addresses(df):
-    """
-    DEPRECATED IN FAVOUR OF TWO OTHER FUNCTIONS:
-
-        1. clean_addresses_with_assessment_number(df, lv)
-        and
-        2. clean_addresses_with_norwood(df, nw):
-
-    Attempts to identify properties which have an address
-    less than 10 char long based on Norwood dataset
-    for example will match: PE-3121 => 3 Jane Doe Lane
-    """
-    dfclean = df.copy(deep=False)
-    nw = pd.read_csv(NORWOOD_DATA_PATH + "parcel_id_assn_nr_database.csv", dtype={"assessment_number": str})
-    lv = pd.read_csv(DATA_PATH + "kw-properties.csv", dtype={"assessment_number": str})
-
-    addr_matches = []
-    addr_n_assn_nr_matches = []
-    no_match = []
-
-    
-    for df_index, row in dfclean.iterrows():
-        assn_str = str(row.assessment_number)
-        addr = str(row.address)
-        # we convert to str as some "0" int are somehow in it.
-        
-        if (len(addr) < 10) and (assn_str != "False"):
-            # address is a parcel ID, but we have the assessment number
-            # find the address in the landvaluation file
-            # 1. sanity check on assessment number format
-            if (assn_str[0:2] == "['") and (assn_str[-2:] == "']"):
-                assn_str = assn_str.strip()
-                # extract assn numbers from string
-                for char in [  "['",   "'",   "']",
-                               '"',    " ",    "[",   "]" ]:  
-                    assn_str = assn_str.replace(char, "")
-                assn_strs = assn_str.split(',')
-                assn_list = []
-                # create list with assessment numbers found
-                # verify that they are 9 digits long
-                # else add a trailing zero to the 8 digit long assessment number
-                for _an in assn_strs:
-                    if len(_an) == 9:
-                        assn_list.append(_an)
-                    if len(_an) == 8:
-                        _an = "0" + _an
-                        assn_list.append(_an)
-                    else:
-                        print('ERROR: Problem extracting assessment number for', row.assessment_number)
-                    # find it in the land valuation (lv dataframe)
-                addresses = ""
-                for j, assn_x in enumerate(assn_list):
-                    addresses += lv[lv.assessment_number == assn_x]["building_name"].values[0]
-                    addresses += ", " + lv[lv.assessment_number == assn_x]["address"].values[0]
-                    if j < len(assn_list)-1:
-                        addresses += " + " # separate multiple addresses
-                        addresses
-                        # print(assn_list, '---->\n', addresses, '\n\n')
-                dfclean.loc[df_index, 'address'] = addresses
-                # keep list of addresses found
-                addr_n_assn_nr_matches.append(addr)
-            else:
-                print("ERROR: Problem extracting assessment number for", row.address)
-        elif (len(addr) < 10) and (addr != "0") and (assn_str == "False"):
-            # address is parcel ID but we don't have an assessment number
-            street_match = nw[nw.parcel_id == row.address].street_address
-
-            if len(street_match) == 1:
-                # the address matches on known parcel_id
-                dfclean.loc[df_index, 'address'] = street_match.iat[0]
-                assn_nr_match = nw[nw.parcel_id == row.address].assessment_number
-                dfclean.loc[df_index, 'assessment_number'] = assn_nr_match.iat[0]
-                addr_n_assn_nr_matches.append(addr)
-
-            elif len(street_match) < 1:
-                # no address matches this parcel_id
-                if "/" in addr:
-                    # try again without the part after the slash
-                    street_matches = row.address.split('/')
-                    street_match = nw[nw.parcel_id == street_matches[0]].street_address
-                    if len(street_match) == 1:
-                        # the address without "/" matches a known parcel_id
-                        # keep the first hit
-                        potential_address = "{} ({})".format(street_match.iat[0], 
-                                                            street_matches[1]) 
-                        dfclean.loc[df_index, 'address'] = street_match.iat[0]
-                        addr_matches.append(addr)
-                    elif len(street_match) > 1:
-                        print('Multiple Matches from Norwood:', street_match)
-                else:
-                    # print("####=> nothing found for", row.address)
-                    no_match.append(addr)
-            elif len(street_match) > 1:
-                # several addresses match this parcel_id
-                print("several addresses match this parcel_id. Investigate")
-                print('---------------------->', row.address, street_match)
-                no_match.append(addr)
-
-    print("\nProcessing Parcel_IDs ...\n")
-    print("Address and assessment number found for: ", addr_n_assn_nr_matches)
-    print("Address found for: ", addr_matches)
-    print("No match found for: ", no_match, "\n")
-    # and print it with friendly message
-    return dfclean
-
 def clean_addresses_with_assessment_number(df, lv):
     ''' 
     Address is deficient, but assessment number is present.
@@ -883,7 +779,7 @@ def clean_addresses_with_norwood(df, nw):
                 elif len(match) > 1:
                             print('Multiple Matches from Norwood:', match)
                 else:
-                    print("####=> nothing found for", row.address)
+                    print(f"####=> nothing found for {row.address} using Norwood")
                     no_match.append(addr)
                     assn_nr_match = 0
             else:
@@ -1026,24 +922,27 @@ def clean_addresses_with_landvaluation(df, lv):
             if len(assn_nr_list) == 1:
                 # The sale has a single assessment number
                 lv_an_match = lv[lv.assessment_number == assn_nr_list[0]]
+
                 if len(lv_an_match) == 1:
                     # single match
                     if lv_an_match.building_name.values[0] == '\xa0':
                         lv_addr = lv_an_match.address.values[0]
                     else:
                         lv_addr = f"{lv_an_match.building_name.values[0]}, {lv_an_match.address.values[0]}"
-                    if _fuzzy_address_match(lv_addr, row.address) > 55:
+                    if _fuzzy_address_match(lv_addr, row.address) > 58:
                         # replace LTRO address with the normative address from landvaluation
                         df.loc[k, 'address'] = lv_addr
                         df.loc[k, 'full_address'] = lv_addr
                         df.loc[k, 'arv'] = lv_an_match.arv.values
                         df.loc[k, 'combined_arv'] = lv_an_match.arv.values.sum()
                     else:
+                        # keep address for the full address
+                        df.loc[k, 'full_address'] = row.address
                         pass
                         # leave address as is. (This seems like an LTRO error, 
                         # address and assessment number don't match, 
                         # but we don't know which is wrong)
-                if len(lv_an_match) > 1:
+                elif len(lv_an_match) > 1:
                     # multiple matches in landvaluation
                     # this should not happen
                     print("[WARNING] ==> Landvaluation properties have duplicates")
@@ -1053,17 +952,27 @@ def clean_addresses_with_landvaluation(df, lv):
                     # LTRO probably input the assessment number incorrectly. 
                     # so there is no assn_nr match on the lv database.
                     # We just ignore them (although the addresses do appear in lv).
-            if len(assn_nr_list) > 1:
+                    df.loc[k, 'full_address'] = row.address
+                else:
+                    print(f"\n===> No match for {row.address} | an: {an}\n")
+            elif len(assn_nr_list) > 1:
                 # the sale has multiple assessment numbers
                 lv_an_match = lv[lv.assessment_number.isin(assn_nr_list)]
                 # create a full address which combines the multiple properties
                 # associated with each assessment number in the sale
                 addresses_and_buildings = [f"{bu}, {ad}" for ad,bu in zip(lv_an_match.address, lv_an_match.building_name)]
                 full_address = "\n".join(addresses_and_buildings)
-
-                df.loc[k, 'full_address'] = full_address
-                df.loc[k, 'arv'] = str([int(x) for x in lv_an_match.arv.values])
-                df.loc[k, 'combined_arv'] = lv_an_match.arv.values.sum() 
+                if len(full_address) > 1:
+                    df.loc[k, 'full_address'] = full_address
+                    df.loc[k, 'arv'] = str([int(x) for x in lv_an_match.arv.values])
+                    df.loc[k, 'combined_arv'] = lv_an_match.arv.values.sum() 
+                else:
+                    # no match found in landvaluation
+                    # so no address is obtained from lv_an_match.
+                    # we keep the address as is.
+                    df.loc[k, 'full_address'] = row.address
+            else:
+                print(f"==>No assessment number for {row.address} | an: {an}")
 
         elif assn_nr_list[0] == '0' and row.address != '0' and row.address != 0:
             # No assessment number to identify the property
@@ -1122,6 +1031,19 @@ def clean_addresses_with_landvaluation(df, lv):
                                 df.loc[k, 'assessment_number'] = final_filter.assessment_number.values[0]
                                 df.loc[k, 'arv'] = final_filter.arv.values[0]
                                 df.loc[k, 'combined_arv'] = final_filter.arv.values[0]
+                    else:
+                        # the address had no commas or was formatted 
+                        # in a way that resulted in no matches.
+                        # we also don't have assessment numbers to help us.
+                        # so we keep the address as is.
+                        if len(row.address) > 1:
+                            df.loc[k, 'full_address'] = row.address
+                        else:
+                            df.loc[k, 'full_address'] = 'Unknown'
+        else:
+            # an is 0 and address is usually 0.
+            # we ignore these entries which will be deleted as ghost assessment numbers
+            pass
     return df
 
 def remove_close_duplicate_sales(df):

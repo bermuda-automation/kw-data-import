@@ -109,7 +109,6 @@ final_df["assessment_number"] = final_df.assessment_number.apply(skipu.clean_ass
 nw = pd.read_csv(NORWOOD_DATA_PATH + "parcel_id_assn_nr_database.csv",
                  dtype={"assessment_number": str})
 
-# final_df = LT.clean_parcel_id_based_addresses(final_df)
 final_df = LT.clean_addresses_with_assessment_number(final_df, lv)
 final_df = LT.clean_addresses_with_norwood(final_df, nw)
 final_df = LT.clean_ARV_with_landvaluation(final_df, lv)
@@ -126,7 +125,6 @@ final_df = LT.remove_ghost_assessment_numbers(final_df, lv)
 # remove duplicates with a difference in registration date of less than 4 months
 # as long as the price, address and assessment number are the same for the two records
 final_df = LT.remove_close_duplicate_sales(final_df)
-
 final_df.to_csv("./data/kw-sales.csv", index=False)
 
 print("\n >> LTRO DATA IMPORTED << \n")
