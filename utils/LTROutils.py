@@ -1082,8 +1082,113 @@ def remove_close_duplicate_sales(df):
     # remove duplicates with the SAME application_number and registration_date.
     # potential improvement: keep the one with the most data.
     df = df[~df.duplicated(subset=['application_number', 'registration_date'], keep='first')]
-    
-
 
     return df
 
+def build_property_name(row):
+    """
+    Build a property name from a row of the sales data.
+    Args:
+        row: A row of the sales data.
+    Returns:
+        A property name.
+    """
+    addr_list = row.full_address.split(",")
+    if len(addr_list[0]) > 12:
+        # first item on the list is long enough for a short address
+        short_address = addr_list[0]
+    else:
+        # address is short. Use the first item.
+        if len(addr_list) > 1:
+            # address has at least two parts 
+            # separated by a comma. Use two:
+            short_address = addr_list[0] + ", " + addr_list[1]
+        else:
+            short_address = addr_list[0]
+    property_name = f"['{row.property_type} at {short_address}']"
+    return property_name
+
+def flag_missing_assn(k, row, df):
+    """
+    Flag a sale as having a missing assessment number.
+    Args:
+        k: The index of the row.
+        row: A row of the sales data.
+    Returns:
+        None.
+    """
+    if row.property_type.lower() != "land" and \
+        row.property_type.lower() != "fractional" and \
+        row.property_type:
+        df.loc[k, "flag"] = "ASSN#"
+    return df
+
+def add_property_name_and_flag(df, lv):
+    """
+    Add a property name and flag to the sales data.
+    Args:
+        df: The sales data.
+        lv: The land valuation data.
+    Returns:
+        df: The sales data with property name and flag added.
+    """
+    df["property_name"] = ""
+    df["flag"] = ""
+
+    for k, row in df.iterrows():
+        list_of_names = []
+        assess_nrs = skipu.clean_assn_nr(row.assessment_number)
+        # Assessment number is missing:
+        if assess_nrs == 0:
+            # create a synthetic property name
+            #  using the type and address.
+            df.loc[k, "property_name"] = build_property_name(row)
+
+            # FLAG the sale as having a missing assessment number:
+            df = flag_missing_assn(k, row, df)
+
+        else:
+            # Otherwise, we have a list of assessment numbers
+            # with one or more items in the list.
+            # which may or may not be in the land valuation database.
+            for assnr in assess_nrs:
+                if assnr in lv.assessment_number.values:            
+                    # it's in the land valuation database, use that name.
+                    list_of_names.append(lv[lv.assessment_number == assnr].property_name.values[0])
+                else:
+                    df = flag_missing_assn(k, row, df)
+                    # the assessment number may be faulty or 
+                    # just not in the land valuation database.
+                    # 1. let's try to find the property by address:
+                    short_address = row.full_address.split(",")
+                    if len(short_address) > 1: # several comma separated items in the address
+                        short_address = short_address[0] + ", " + short_address[1]
+                    else:
+                        short_address = short_address[0]
+
+                    # escape special characters in the address
+                    # so it's not interpreted as a regex
+                    short_address = re.escape(short_address)
+                    matching_properties = lv[lv.address.str.contains(short_address, case=False, na=False)]
+
+                    if len(matching_properties) == 1:
+                        # Found single matching property by address
+                        list_of_names.append(matching_properties.iloc[0].property_name)
+                    else:
+                        # Either several matches (not specific enough)
+                        # or No match found
+                        # In either case, we create a synthetic name from type and address
+                        short_address = row.address.split(",")
+                        if len(short_address) > 1:
+                            if len(short_address[0]) >= 12:
+                                short_address = short_address[0]
+                            else:
+                                short_address = short_address[0] + ", " + short_address[1]
+                        else:
+                            short_address = short_address[0]
+                        list_of_names.append(f"{row.property_type} at {short_address}")
+
+            # write to the property_name column:
+            df.loc[k, "property_name"] = str(list_of_names)
+        
+    return df
