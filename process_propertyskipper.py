@@ -17,16 +17,17 @@ url = keys.get("skipper", "URL")
 
 # define file to save to
 today = datetime.today()
-skipper_properties = 'data/skipper/{}-{:02d}-{:02d}_skipper_properties.xml'.format(today.year, today.month, today.day)
+skipper_properties_xml = 'data/skipper/{}-{:02d}-{:02d}_skipper_properties.xml'.format(today.year, today.month, today.day)
 # if file exists for today, don't download again
-if not os.path.exists(skipper_properties):
+if not os.path.exists(skipper_properties_xml):
     # Get data from web as XML
     SSU.get_xml_with_wget(url, skipper_properties)
 
-print(skipper_properties)
-
+print(skipper_properties_xml)
+skipper_properties_csv = "data/skipper/{}-{:02d}-{:02d}_skipper_properties.csv".format(today.year, today.month, today.day)
 # Open XML and convert to CSV
-csv_data = skipu.download_skipper_xml(skipper_properties)
+csv_data = skipu.download_skipper_xml(skipper_properties_xml,
+                                      skipper_properties_csv)
 # csv_data = 'data/skipper/2023-08-14_skipper_properties.csv'
 print("\nLast XML downloaded and saved to ./data/skipper/ \n")
 

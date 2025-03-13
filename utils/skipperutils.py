@@ -7,7 +7,7 @@ from datetime import datetime
 
 import pandas as pd
 
-def download_skipper_xml(xml_file):
+def download_skipper_xml(xml_file, csv_file):
     """
     Opens local XML, parses it and converts it to CSV
     returns: location and name of CSV file, for example:
@@ -55,7 +55,7 @@ def download_skipper_xml(xml_file):
 
     # define file to save to
     today = datetime.today()
-    csvdata = 'data/skipper/{}-{:02d}-{:02d}_skipper_properties.csv'.format(today.year, today.month, today.day)
+    csvdata = csv_file # 'data/skipper/{}-{:02d}-{:02d}_skipper_properties.csv'.format(today.year, today.month, today.day)
     
     # writing to csv file
     with open(csvdata, 'w', encoding='utf8') as csvfile: # , encoding='utf8') as csvfile:
@@ -342,18 +342,6 @@ def _address_filter(df):
     else:
         return "" # probably ok
 
-def _country_filter(df):
-    """
-    find incorrect country
-    (unlikely to be an error, but just in case)
-    """
-    if pd.isnull(df.country):
-        return "bermuda"
-    elif df.country != "bermuda":
-        return "COUNTRY"
-    else:
-        return df["flag"]
-
 def clean_and_flag_properties(df):
     """
     we use the filters defined above
@@ -365,16 +353,14 @@ def clean_and_flag_properties(df):
     df["flag"] = ""
     # prepare data
     df["property_type"] = df["property_type"].str.lower()
-    df["country"] = df["country"].str.lower()
 
     flags_address = df.apply(_address_filter, axis = 1)
     flags_an = df.apply(_assessment_number_filter, axis =1)  
     flags_price = df.apply(_price_filter, axis =1)
-    flags_country = df.apply(_country_filter, axis =1)
 
     # apply flag filters
     # note that all filters return strings, so we can concatenate them later
-    df["flag"] = flags_address.str.cat(flags_an, sep=" ").str.cat(flags_price, sep=" ").str.cat(flags_country, sep=" ").str.strip()
+    df["flag"] = flags_address.str.cat(flags_an, sep=" ").str.cat(flags_price, sep=" ").str.strip()
     return df
     
 def sanitize_text(df):

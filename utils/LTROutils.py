@@ -429,7 +429,8 @@ def add_arv_to_ltro(df, lv):
                     df.at[k, 'arv'] = 0
                 else:
                     df.at[k, 'arv'] = [arv[0]]
-            except:
+            except Exception as e:
+                print(e)
                 df.at[k, 'arv'] = 0
 
         elif an and len(an) > 1: # Multiple assessment numbers
@@ -537,6 +538,11 @@ def clean_property_type(df, lv):
     return df   
 
 def clean_area(df):
+    """
+    use the column "parcel_area"
+    to build a column "parcel_area_ha"
+    with the same surface units (in hectares)
+    """
     # clean_area
     # 1. is there a number?
     # 2. is there a unit?
