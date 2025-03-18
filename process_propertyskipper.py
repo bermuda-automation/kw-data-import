@@ -21,7 +21,7 @@ skipper_properties_xml = 'data/skipper/{}-{:02d}-{:02d}_skipper_properties.xml'.
 # if file exists for today, don't download again
 if not os.path.exists(skipper_properties_xml):
     # Get data from web as XML
-    SSU.get_xml_with_wget(url, skipper_properties)
+    SSU.get_xml_with_wget(url, skipper_properties_xml)
 
 print(skipper_properties_xml)
 skipper_properties_csv = "data/skipper/{}-{:02d}-{:02d}_skipper_properties.csv".format(today.year, today.month, today.day)
@@ -71,7 +71,6 @@ print("FLAGS added to properties with missing data\n")
 # \r -> mapped to \n
 df = skipu.sanitize_text(df)
 
-
 # Convert agents column from list to dict:
 # https://github.com/bermuda-automation/kw-data-import/issues/3
 df["agent"] = df.agent.apply(skipu.clean_up_agent_list).apply(skipu.agent_list_to_dict)
@@ -80,8 +79,6 @@ df["agent"] = df.agent.apply(skipu.clean_up_agent_list).apply(skipu.agent_list_t
 # make naming uniform
 # merge city hamilton -> pembroke and Town of St.George -> St. George
 df = skipu.simplify_parishes(df)
-
-
 
 # Save to the two CSVs
 skipper_property = df[["reference", "skipper_id","assessment_number",
@@ -96,6 +93,6 @@ listing = df[["reference", "skipper_id","date_added", "date_relisted",
               "is_rent", "is_sale", "under_contract", "under_offer", "buyer_type",
                "price", "price_from", "daily_rate", 'agent']]
 
-skipper_property.to_csv("./data/kw-skipper_properties.csv", index=False)
+skipper_property.to_csv("./data/kw-skipper_properties.csv", index=False, na_rep='')
 listing.to_csv("./data/kw-listings.csv", index=False)
 print("kw-skipper_properties.csv and kw-listings.csv exported to CSV into ./data/ \n")

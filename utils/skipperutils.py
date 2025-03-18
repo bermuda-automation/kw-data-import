@@ -207,6 +207,7 @@ def _fractional_filter(df):
                        "th share", "one tenth", "one sixth", "timeshares", "timeshare", "fractional ownership",
                        "harbour court residences", "harbour court", "tuckers point golf villa",
                        "belmont hills unit", "tucker's point golf villa", "golf villas residence club",
+                       "newstead belmont hills",
                       "081265514", "081248016", "071919105", "1/10 fraction", "1/10 fractionof"] 
                     # last 3 numbers are the assess_nr of compounds with lots of apartments
                     # like Newstead Belmont Hills, the Reefs, Harbour Court, Tucker's Point
@@ -287,28 +288,56 @@ def _price_filter(df):
 def _assessment_number_filter(df):
     """
     function to filter dataframe searching for anomalous assessment numbers or addresses
-    adds string "Assn Nr" or "Address" if appropriate 
+    adds string "ASSN#" if appropriate 
     uniform_property_type(df) function should have run before running this one
     """
-    if  df["property_type"] == "land" or df["property_type"] == "fractional":
+    # Early return for land or fractional properties
+    if df["property_type"] == "land" or df["property_type"] == "fractional":
         return ""
-    elif not df["assessment_number"]:
-        # not a land, not fractional and ass_nr missing
-        return "ASSN#"
-    elif df["assessment_number"] == 0 :
-        return "ASSN#"
-    elif (len(str(df.assessment_number)) == 8) or (len(str(df.assessment_number)) == 9):
-         return ""  # probably correct
-    elif len(str(df.assessment_number)) > 9:
-        _an = clean_assn_nr(df.assessment_number)
-        if _an != 0:
-            # it found a good assessment number or 
-            # assessment number list.
-            return ""
-        else:
+    
+    # Get the assessment number value
+    an = df["assessment_number"]
+    
+    # First check if it's a list
+    if isinstance(an, list):
+        # Empty list
+        if not an:
             return "ASSN#"
-    else:
-        return "ASSN#" # if we got here it's not an 8 or 9 character number => likely bad assessment number
+        
+        # Check if any value in the list is a valid assessment number (8 or 9 digits)
+        valid_number = False
+        for value in an:
+            if isinstance(value, str) and value.isdigit() and len(value) in [8, 9]:
+                valid_number = True
+                break
+        
+        return "" if valid_number else "ASSN#"
+    
+    # If it's zero (string or integer)
+    if an == 0 or an == "0":
+        return "ASSN#"
+    
+    # If it's None or NaN
+    if an is None or (isinstance(an, float) and pd.isna(an)):
+        return "ASSN#"
+    
+    # If it's a string
+    if isinstance(an, str):
+        # Check if it's a valid 8 or 9 digit assessment number
+        if an.isdigit() and len(an) in [8, 9]:
+            return ""
+        return "ASSN#"
+    
+    # If it's an integer
+    if isinstance(an, int):
+        # Check if it's a valid 8 or 9 digit assessment number
+        if len(str(an)) in [8, 9]:
+            return ""
+        return "ASSN#"
+    
+    # Default - flag it if we get here
+    return "ASSN#"
+
 
 def _address_filter(df):
     """ 
@@ -354,13 +383,25 @@ def clean_and_flag_properties(df):
     # prepare data
     df["property_type"] = df["property_type"].str.lower()
 
+    # Ensure assessment_number is treated as a string and strip whitespace
+    df["assessment_number"] = df["assessment_number"].astype(str).str.strip()
+
     flags_address = df.apply(_address_filter, axis = 1)
     flags_an = df.apply(_assessment_number_filter, axis =1)  
     flags_price = df.apply(_price_filter, axis =1)
 
     # apply flag filters
     # note that all filters return strings, so we can concatenate them later
-    df["flag"] = flags_address.str.cat(flags_an, sep=" ").str.cat(flags_price, sep=" ").str.strip()
+    df["flag"] = flags_address + ' ' + flags_an + ' ' + flags_price
+    df["flag"] = df["flag"].str.strip()
+    
+    # Direct fix for any remaining unflagged rows with assessment_number == '0'
+    # that aren't land or fractional
+    cond = (((df.flag == "") | (df.flag.isna())) & 
+            (df.assessment_number.astype(str) == '0') & 
+            (df.property_type != 'land') & 
+            (df.property_type != 'fractional'))
+    df.loc[cond, 'flag'] = "ASSN#"    
     return df
     
 def sanitize_text(df):

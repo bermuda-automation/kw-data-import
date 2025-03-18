@@ -43,11 +43,19 @@ sass = sass.dropna(axis=0, how='all')
 # - remove duplicates
 
 # DUPLICATES
-# Some ssta entries are duplicated (the only difference is in the pictures they contain)
-# here we remove duplicates (we lose some pictures, but hopefully ALL pictures have been imported elsewhere)
+# remove duplicates based on transaction_date, parish, building_name, address_line, postcode, price, assessment_number
+# but keep those occurrences with pictures
 
-sass = sass[~sass.duplicated(subset=['transaction_date', 'parish', 'building_name', \
-                            'address_line', 'postcode', 'price','assessment_number'], keep='first')]
+# Sort by photos first (so records with photos are kept when dropping duplicates)
+sass = sass.sort_values('photos', ascending=False)
+# Drop duplicates
+sass = sass[~sass.duplicated(subset=['transaction_date', 'parish', 
+                                     'building_name', 
+                                     'address_line', 
+                                     'postcode', 
+                                     'price',
+                                     'assessment_number'], 
+                                     keep='first')]
 
 print('there are {} sales in Skipper Stats'.format(len(sass)))
 
