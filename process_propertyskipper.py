@@ -67,6 +67,9 @@ df = LT.clean_property_type(df, lv)
 df = skipu.clean_and_flag_properties(df)
 print(" >>> FLAGS added to properties with missing data\n")
 
+# add property name to skipper properties
+df = skipu.add_property_name_to_skipper_properties(df, lv)
+
 # remove carriage returns which give problems when converted to CSV
 # \r -> mapped to \n
 df = skipu.sanitize_text(df)
@@ -87,11 +90,11 @@ skipper_property = df[["reference", "skipper_id","assessment_number",
      "url", "views", "special_headline", "short_description", "long_description",
      'youtube_id', 'vimeo_id', 'paradym_url',  'virtual_tour_url', "images",
      # 'virtual_tour_img', 'rego_embed_id' seem to be empty
-     'bedrooms', 'bathrooms', 'half_bathrooms', "lotsize", 'sqft']]
+     'bedrooms', 'bathrooms', 'half_bathrooms', "lotsize", 'sqft', "property_name"]]
 
 listing = df[["reference", "skipper_id","date_added", "date_relisted",
               "is_rent", "is_sale", "under_contract", "under_offer", "buyer_type",
-               "price", "price_from", "daily_rate", 'agent']]
+               "price", "price_from", "daily_rate", 'agent', "property_name"]]
 
 skipper_property.to_csv("./data/kw-skipper_properties.csv", index=False, na_rep='')
 listing.to_csv("./data/kw-listings.csv", index=False)

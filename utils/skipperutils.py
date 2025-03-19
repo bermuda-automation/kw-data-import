@@ -424,3 +424,77 @@ def simplify_parishes(df):
                                   "Pembroke", "Hamilton", "St. George's", "Smiths"], regex=False)
     df.rename(columns = {'city':'parish'}, inplace = True)
     return df
+
+def add_property_name_to_skipper_properties(df, lv):
+    """
+    Add a property name to the skipper properties dataframe using vectorized operations.
+    
+    Args:
+        df: The dataframe to add the property name to.
+        lv: The land valuation dataframe.
+    Returns:
+        The dataframe with the property name added.
+    """
+    # Make a copy to avoid modifying the original
+    df = df.copy()
+    
+    # Initialize property_name column
+    df['property_name'] = ''
+    
+    # Pre-process assessment numbers for all rows at once
+    df['clean_assn'] = df['assessment_number'].apply(clean_assn_nr)
+    
+    # Create helper columns for condition checking
+    df['is_zero'] = df['clean_assn'].apply(lambda x: x == 0)
+    df['assn_len'] = df['clean_assn'].apply(lambda x: 0 if x == 0 else len(x))
+    
+    # Case 1: No assessment number - create synthetic name
+    no_assn_mask = df['is_zero']
+    if no_assn_mask.any():
+        df.loc[no_assn_mask, 'property_name'] = (
+            df.loc[no_assn_mask, 'property_type'].str.capitalize() + 
+            " at " + 
+            df.loc[no_assn_mask, 'name'].astype(str)
+        )
+    
+    # Case 2: Single assessment number
+    single_assn_mask = (~df['is_zero']) & (df['assn_len'] == 1)
+    if single_assn_mask.any():
+        # Extract the single assessment number for each row
+        single_rows = df[single_assn_mask].copy()
+        single_rows['single_assn'] = single_rows['clean_assn'].apply(lambda x: x[0])
+        
+        # Create a lookup dictionary from lv dataframe for faster access
+        lv_lookup = dict(zip(lv['assessment_number'], lv['property_name']))
+        
+        # Apply the lookup to get property names
+        def get_property_name(row):
+            assn = row['single_assn']
+            if assn in lv_lookup and not pd.isna(lv_lookup[assn]):
+                return lv_lookup[assn]
+            else:
+                return f"{str(row['property_type']).capitalize()} at {str(row['name'])}"
+                
+        single_rows['property_name'] = single_rows.apply(get_property_name, axis=1)
+        df.loc[single_assn_mask, 'property_name'] = single_rows['property_name']
+    
+    # Case 3: Multiple assessment numbers
+    multi_assn_mask = (~df['is_zero']) & (df['assn_len'] > 1)
+    
+    # For multi-assessment rows, we still need to process individually
+    # as the logic for joining names is complex
+    for idx in df[multi_assn_mask].index:
+        assn_list = df.loc[idx, 'clean_assn']
+        matching_properties = lv[lv['assessment_number'].isin(assn_list)]
+        
+        if not matching_properties.empty:
+            df.loc[idx, 'property_name'] = ", ".join(matching_properties['property_name'].values)
+        else:
+            name = str(df.loc[idx, 'name'])
+            prop_type = str(df.loc[idx, 'property_type']).capitalize()
+            df.loc[idx, 'property_name'] = f"{prop_type} at {name}"
+    
+    # Drop helper columns
+    df = df.drop(['clean_assn', 'is_zero', 'assn_len'], axis=1)
+    
+    return df
