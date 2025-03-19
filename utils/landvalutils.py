@@ -66,7 +66,7 @@ def process_and_merge_duplicates(df):
 
 
 def create_property_name(row):
-    bn = row.building_name
+    bn = row.building_name # bn = building_name
     bn = bn.lower().strip()
     # check if building_name is empty
     if pd.isna(row .building_name) or row.building_name == '\xa0':

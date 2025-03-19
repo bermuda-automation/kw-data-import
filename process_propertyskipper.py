@@ -65,7 +65,7 @@ df = LT.clean_property_type(df, lv)
 
 # flag properties with bad price, address, assessment number, country
 df = skipu.clean_and_flag_properties(df)
-print("FLAGS added to properties with missing data\n")
+print(" >>> FLAGS added to properties with missing data\n")
 
 # remove carriage returns which give problems when converted to CSV
 # \r -> mapped to \n

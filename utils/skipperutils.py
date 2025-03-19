@@ -77,111 +77,102 @@ def let_or_rent(df):
     return df
 
 
-def clean_assn_nr(an):
-    """
-    Is the assessment number a 8 or 9 digit string?
-    if it starts by zero, remove the first zero to match the 
-    landvaluation database format.  If it starts by any other number
-    leave it as is.
-    if it contains several numbers separated by comma we will look up
-    their ARV and if the ARV is found, we will keep the assessment number
-    with the highest ARV.  All other situations will be stored as zero.
 
-    :param an: str assessment number
-    :return: list or int assessment number or zero
+def clean_assn_nr(assessment_number):
     """
-    # regex for 8 or 9 digit string
-    pattern = re.compile(r'^\d{8,9}$')
-    # regex for a string with only zeroes
-    zero_pattern = re.compile(r'^[0]+$')
+    Clean up assessment number data which comes in various formats.
+    Here are some format examples we encounter in real life:
+    [["070730016", "28723423"],
+    ["070730016 and 28723423", "234233338"],
+    ["0", 0],
+    ["0 and 28723423", 0],
+    ["0 and 28723423 and 234233338", 0],
+    ["0000000", 0],
+    ["0000000 and 28723423", 0],
+    ["0000000 and 28723423 and 234233338", 0],
+    ["0000000 28723423  234233338"],
+    ["0000000 and 28723423 and 234233338 and 070730016"],
+    ["0000000 and 28723423 and 234233338 and 070730016", "234233336"],
+    ["0000000 and 28723423, 234233338 and 070730016, 234233338"],
+    "03388888",
+    "N/A",
+    "03388888 and 070730016",
+    "041569016, 041569318 and 041570014"
+    "03388888 and 070730016 and 28723423",
+    "03388888 and 070730016 and 28723423 and 234233338",
+    "03388888 and 070730016 and 28723423 and 234233338 and 070730016",
+    "03388888 and 070730016 and 28723423 and 234233338 and 070730016, 234233338",
+    "0",
+    "Some Property Name without digits",
+    "041959019 (Upper Apt), 041960017 (Lower Apt)",
+    "030472016, 030472113, 030472210, 030472318, 030472415, 030472512, 030472610, 030472717, 030472814",
+    "Dock",
+    "020067119,020067216,020067313,021771715",
+    "7070587310"
     
-    # has this "an" already been processed into a list?
-    if isinstance(an, list) and len(an) == 1:
-        if zero_pattern.match(an[0]):
-            return 0
-        elif pattern.match(an[0]):
-            return an
-        else: # for example: an =  ['122674022 and 122674111']
-            return str(an).strip()
-    elif isinstance(an, list) and len(an) > 1:
-        if any(zero_pattern.match(x) for x in an):
-            # the list contains an an of the form 0000000
-            # convert to string for further processing below
-            an = str(an).strip()
-        elif all(pattern.match(x) for x in an):
-            # all elements in the an list have the correct format
-            return list(set(an))
-        else: # for example: an =  ['122674022 and 122674111', '123123123']
-            an = str(an).strip()
-    else:
-        # convert to string for further processing
-        an = str(an).strip()
-        if 'vacant land' in an.lower() or \
-            'land' in an.lower() or \
-            'timeshare' in an.lower():
-            return 0
-
-    # it's a single assessment number
-    if zero_pattern.match(an):  
-        return 0
-    elif pattern.match(an):
-        if len(an) == 9:
-            # return a single assessment number list
-            return [an]
-        elif len(an) == 8:
-            # return a single assessment number list with trailing zero
-            return ['0' + an]
-        else:
-            print('ERROR: assessment number missidenfied', an)
-            return 0
-    elif len(an) > 9:
-        # it may be a list of assessment numbers
-        # remove "&" or "and" and other symbols from the lists
-        assn_nr = an.replace('b','') \
-                    .replace('[','') \
-                    .replace(']','') \
-                    .replace("'","") \
-                    .replace(";", ",").replace("/", ",").strip()
+    Args:
+        input_data: A string or list of strings containing assessment numbers
         
-        assn_nr = assn_nr.replace(", and", ",")
-        assn_nr = assn_nr.replace(",and", ",")
-        assn_nr = assn_nr.replace("and", ",")
-        # for cases like ['05088701    050887114']
-        pattern= re.compile(r'^\d{6,10}\s+\d{6,10}$')
-        if pattern.match(assn_nr):
-            assn_nr = assn_nr.replace("  ", ",")
-        # remove anything that is left which contains letters
-        assn_nr = re.sub(r'[a-zA-Z]', '', assn_nr)
-        # remove if number precdes assn_nr like '8 122674022'
-        assn_nr = re.sub(r'^\d\s', '', assn_nr)
-        assn_nr = assn_nr.replace("(", "")
-        assn_nr = assn_nr.replace(")", "")
-        assn_nr = assn_nr.replace("&", ",")
-        list_of_ass_nr = assn_nr.split(",")
-
-        if len(list_of_ass_nr) == 0:
-            # not a list of assessment numbers
-            return 0
-        elif len(list_of_ass_nr) == 1:
-            # it was a single assessment number
-            return list_of_ass_nr
+    Returns:
+        - 0 if input contains only text without digits
+        - 0 if input contains only zeros
+        - 0 if all numbers have fewer than 7 digits or more than 10 digits
+        - Otherwise, a list of strings with all numbers having 7-10 digits 
+          (after removing strings of only zeros)
+    """
+    # Convert input to list if it's not already
+    if not isinstance(assessment_number, list):
+        assessment_number = [assessment_number]
+    
+    # Flatten the list if it contains nested lists
+    flat_list = []
+    for item in assessment_number:
+        if isinstance(item, list):
+            flat_list.extend(item)
         else:
-            # process list of assessment numbers
-            # remove empty space
-            clean_list = [x.strip() for x in list_of_ass_nr]
-            # recursively check for assessment numbers (number, length, etc)
-            assn_nr_clean = [clean_assn_nr(x) for x in clean_list]
-            # keep list elements that are not false
-            an_list = [x[0] for x in assn_nr_clean if x]
-            if len(an_list) == 0:
-                # did we end up with an empty list?
-                return 0
-            else:
-                return list(set(an_list))
-    elif len(an) <= 7:
+            flat_list.append(item)
+    
+    # Initialize an empty set to store valid assessment numbers
+    valid_numbers = set()
+    
+    # Process each string in the flattened list
+    for string in flat_list:
+        if not isinstance(string, str):
+            continue
+            
+        # Replace various separators with spaces for consistent parsing
+        import re
+        string = re.sub(r'\band\b|&|,', ' ', string)
+        
+        # Extract numbers from parentheses
+        parentheses_matches = re.findall(r'\((\d+)\)', string)
+        
+        # Remove parentheses sections from the string to avoid double counting
+        string = re.sub(r'\([^)]*\)', ' ', string)
+        
+        # Find all remaining potential numbers
+        all_numbers = re.findall(r'\b\d+\b', string)
+        all_numbers.extend(parentheses_matches)
+        
+        # Add valid numbers (7-10 digits) to our set
+        for num in all_numbers:
+            if 7 <= len(num) <= 10:
+                valid_numbers.add(num)
+    
+    # Check if we found nothing but zeros
+    if valid_numbers and all(num == '0' or num.strip('0') == '' for num in valid_numbers):
         return 0
+    
+    # Remove strings containing only zeros
+    valid_numbers = {num for num in valid_numbers if not all(c == '0' for c in num)}
+    # if we see assessment number with 10 digits, remove the first digit
+    # keep all other numbers as is
+    valid_numbers = {num[1:] if len(num) == 10 else num for num in valid_numbers}
+    
+    # If we found valid numbers, return them as a list
+    if valid_numbers:
+        return list(valid_numbers)
     else:
-        print('NOTHING FOUND FOR Assessment Number', an)
         return 0
 
 
@@ -263,146 +254,110 @@ def uniform_property_type(df):
     df2=df.replace({"property_type": property_type_dict})
 
     #
-    return df2                                                            
+    return df2           
 
-def contains_number(value):
-    ''' check if the value has numbers '''
-    return bool(re.findall('[0-9]+', value))
 
-def _price_filter(df):
-    """
-    function to filter dataframe searching for incorrect prices
-    which we will use to flag properties for review
-    adds the string "PRICE" to corresponding row of df.flag
-    if price is incorrect.
-    """
-    if pd.isnull(df['price']):
-        return "PRICE"
-    elif df["price"] == 0 or df["price"] == "0":
-        return "PRICE"
-    elif (int(df.price) < 20_000) & (df.is_sale == 1):
-        return "PRICE"   # $20,000 is too cheap for a sale in Bermuda
-    else:
-        return ""  # df['flag']
+def _contains_number(value):
+    """Check if the value contains any digits"""
+    if pd.isna(value):
+        return False
+    return bool(re.findall(r'\d+', str(value)))
 
-def _assessment_number_filter(df):
-    """
-    function to filter dataframe searching for anomalous assessment numbers or addresses
-    adds string "ASSN#" if appropriate 
-    uniform_property_type(df) function should have run before running this one
-    """
-    # Early return for land or fractional properties
-    if df["property_type"] == "land" or df["property_type"] == "fractional":
+def _check_assessment_number(row):
+    """Check if assessment number is problematic"""
+    # Skip fractional and land properties as they don't need assessment numbers
+    if row["property_type"] == "fractional" or row["property_type"] == "land":
         return ""
     
-    # Get the assessment number value
-    an = df["assessment_number"]
-    
-    # First check if it's a list
-    if isinstance(an, list):
-        # Empty list
-        if not an:
-            return "ASSN#"
-        
-        # Check if any value in the list is a valid assessment number (8 or 9 digits)
-        valid_number = False
-        for value in an:
-            if isinstance(value, str) and value.isdigit() and len(value) in [8, 9]:
-                valid_number = True
-                break
-        
-        return "" if valid_number else "ASSN#"
-    
-    # If it's zero (string or integer)
-    if an == 0 or an == "0":
+    # Check if assessment number is missing or zero
+    assn = row["assessment_number"]
+    if pd.isna(assn) or assn == 0 or assn == "0":
         return "ASSN#"
     
-    # If it's None or NaN
-    if an is None or (isinstance(an, float) and pd.isna(an)):
-        return "ASSN#"
-    
-    # If it's a string
-    if isinstance(an, str):
-        # Check if it's a valid 8 or 9 digit assessment number
-        if an.isdigit() and len(an) in [8, 9]:
-            return ""
-        return "ASSN#"
-    
-    # If it's an integer
-    if isinstance(an, int):
-        # Check if it's a valid 8 or 9 digit assessment number
-        if len(str(an)) in [8, 9]:
-            return ""
-        return "ASSN#"
-    
-    # Default - flag it if we get here
-    return "ASSN#"
+    return ""
 
+def _check_price(row):
+    """Check if price is problematic"""
+    if pd.isna(row["price"]):
+        return "PRICE"
+    elif row["price"] == 0 or row["price"] == "0":
+        return "PRICE"
+    elif (int(float(row["price"])) < 20_000) and (row["is_sale"] == 1):
+        return "PRICE"   # $20,000 is too cheap for a sale in Bermuda
+    
+    return ""
 
-def _address_filter(df):
-    """ 
-    Flag address only if it has no assessment number
-    If it has an assessment number then we can match it with the 
-    landvaluation database which has accurate addresses.
-    if a flag already exists, then append this new one to it.
-    """
-    if df["name"]: # flag problems with address
-        if df["property_type"] == "land" and len(df["name"]) < 10: # for example: 3 South Rd
+def _check_address(row):
+    """Check if address is problematic"""
+    name = str(row["name"]) if not pd.isna(row["name"]) else ""
+    
+    # No address
+    if not name:
+        # If we have a valid assessment number, we might be able to find the address later
+        # so we don't flag it as an address problem
+        if isinstance(row["assessment_number"], str) and len(row["assessment_number"]) in [8, 9]:
+            return ""
+        return "ADDRESS"
+    
+    # Property type specific checks
+    if row["property_type"] == "land":
+        if len(name) < 8 or not _contains_number(name):
+            # for example: (3 Road) or (South St.)
             # land wont have assessment number to locate it, so a short address is insufficient
             return "ADDRESS"
-        elif df["property_type"] == "land" and not contains_number(df["name"]):
-            # land won't have assessment number, and an address without number is unlikely to be good
+    elif row["property_type"] == "fractional":
+        if len(name) < 8 or not _contains_number(name):
+            # fractional won't have assessment number, 
+            # and an address without number is unlikely to be good
             return "ADDRESS"
-        elif df["property_type"] == "fractional" and not contains_number(df["name"]):
-            # fractional won't have assessment number, and an address without number is unlikely to be good
-            return "ADDRESS"
-        elif df["property_type"] == "fractional" and len(df["name"]) < 10:
-            return "ADDRESS"
-        elif not df["assessment_number"] and ((len(df["name"]) < 10) or not contains_number(df["name"])):
-            # no assessment number, short and without number: Unlikely to identify the property
-            return "ADDRESS"
-        elif len(df["name"]) < 10 and not contains_number(df["name"]): 
-            return "ADDRESS" # Address seems too short and has no number
-    elif df["name"] and (len(str(df.assessment_number)) == 8) or (len(str(df.assessment_number)) == 9):
-        # no address present but single assessment number
-        return "" # probably ok to find the address from the assessment number
-    elif (len(str(df.assessment_number)) == 8) or (len(str(df.assessment_number)) == 9):
-            return ""
     else:
-        return "" # probably ok
+        # For other properties
+        assn = str(row["assessment_number"]) if not pd.isna(row["assessment_number"]) else ""
+        if (assn == "0" or not assn) and (len(name) < 8 or not _contains_number(name)):
+            return "ADDRESS"
+        elif len(name) < 8 and not _contains_number(name):
+            return "ADDRESS"
+    
+    # other wise, address is probably ok
+    return ""
 
 def clean_and_flag_properties(df):
     """
-    we use the filters defined above
-    to creates columns with flags if there
-    are problems with address, assessment number or price
-    we then concatenate these columns
+    Generate flags for properties based on assessment number, price, and address issues.
+    Returns the dataframe with the flag column populated.
     """
-    # add column for flags 
+    # Make a copy to avoid modifying the original
+    df = df.copy()
+    
+    # Initialize flag column
     df["flag"] = ""
-    # prepare data
-    df["property_type"] = df["property_type"].str.lower()
-
-    # Ensure assessment_number is treated as a string and strip whitespace
-    df["assessment_number"] = df["assessment_number"].astype(str).str.strip()
-
-    flags_address = df.apply(_address_filter, axis = 1)
-    flags_an = df.apply(_assessment_number_filter, axis =1)  
-    flags_price = df.apply(_price_filter, axis =1)
-
-    # apply flag filters
-    # note that all filters return strings, so we can concatenate them later
-    df["flag"] = flags_address + ' ' + flags_an + ' ' + flags_price
+    
+    # Ensure columns are in the right format
+    df["property_type"] = df["property_type"].astype(str).str.lower()
+    df["assessment_number"] = df["assessment_number"].astype(str).replace("nan", "0")
+    
+    # Apply checks
+    assessment_flags = df.apply(_check_assessment_number, axis=1)
+    price_flags = df.apply(_check_price, axis=1)
+    address_flags = df.apply(_check_address, axis=1)
+    
+    # Combine flags
+    for idx in df.index:
+        flags = []
+        if assessment_flags[idx]:
+            flags.append(assessment_flags[idx])
+        if price_flags[idx]:
+            flags.append(price_flags[idx])
+        if address_flags[idx]:
+            flags.append(address_flags[idx])
+        
+        df.loc[idx, "flag"] = " ".join(flags)
+    
+    # Ensure any empty flag strings are preserved as empty
     df["flag"] = df["flag"].str.strip()
     
-    # Direct fix for any remaining unflagged rows with assessment_number == '0'
-    # that aren't land or fractional
-    cond = (((df.flag == "") | (df.flag.isna())) & 
-            (df.assessment_number.astype(str) == '0') & 
-            (df.property_type != 'land') & 
-            (df.property_type != 'fractional'))
-    df.loc[cond, 'flag'] = "ASSN#"    
     return df
+
     
 def sanitize_text(df):
     """
