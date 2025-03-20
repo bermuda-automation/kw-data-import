@@ -125,11 +125,14 @@ sss = SSU.address_filter_for_sss_LTRO_duplicates(sss, sa)
 sss = SSU.fractional_filter_for_sss_LTRO_duplicates(sss, sa)
 print('\n there are {} new distinct sales from Skipper Stats'.format(len(sss)))
 
-# preare for export with renaming or deleting columns.
-sss.drop(['is_land', 'is_fractional_unit'], axis=1, inplace=True)
-df = df.rename(columns={'arv_default': 'arv', 'transaction_date': 'registration_date',})
-
 ################  FIX NO NAME BUILDINGS ################
 sss = SSU.fix_no_name_buildings(sss, lv)
+
+# preare for export with renaming or deleting columns.
+sss.drop(['is_land', 'is_fractional_unit'], axis=1, inplace=True)
+sss = sss.rename(columns={'arv_default': 'arv', 
+                        'transaction_date': 'registration_date',
+                        'building_name': 'property_name',
+                        'address_line': 'address'})
 
 sss.to_csv("./data/kw-skipper-stats-sales.csv", index=False)

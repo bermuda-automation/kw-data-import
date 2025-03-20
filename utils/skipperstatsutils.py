@@ -215,8 +215,8 @@ def _fuzzy_address_match(addr1, addr2):
     if 'Bermuda' not in addr1:
       addr1 = addr1 + ', Bermuda'
 
-    numbers_only_0 = set(re.findall('\d+', addr1))
-    numbers_only_1 = set(re.findall('\d+', addr2))
+    numbers_only_0 = set(re.findall(r'\d+', addr1))
+    numbers_only_1 = set(re.findall(r'\d+', addr2))
     if len(numbers_only_0) == 0 or len(numbers_only_1) == 0:
         # avoid division by zero
         return False, 0
@@ -429,8 +429,8 @@ def are_prices_close(skipperprice, ltroprice):
     
 
 def are_addresses_close(skipper_addr, ltro_addr):
-    numbers_only_0 = set(re.findall('\d+', skipper_addr))
-    numbers_only_1 = set(re.findall('\d+', ltro_addr))
+    numbers_only_0 = set(re.findall(r'\d+', skipper_addr))
+    numbers_only_1 = set(re.findall(r'\d+', ltro_addr))
     similarity_ratio = fuzz.ratio(skipper_addr, ltro_addr)
     if similarity_ratio > 80 and (numbers_only_0 == numbers_only_1):
         return True
@@ -613,6 +613,7 @@ def fix_no_name_buildings(df, lv):
         if len(match) > 0:
             if len(match.building_name.values[0]) > 2:
                 # building name found at landvaluation database
+                # keep just the first match
                 df.loc[idx, 'building_name'] = match.building_name.values[0]
             else:
                 # building name not found at landvaluation database
@@ -621,4 +622,5 @@ def fix_no_name_buildings(df, lv):
 
     mask = (df.building_name == "0") | (df.building_name == "N/A") | (df.building_name.isna()) | (df.building_name == 0)
     print(df[mask].shape[0], "buildings with no name after fixing")
+
     return df
