@@ -339,7 +339,12 @@ def clean_and_flag_properties(df):
     # Apply checks
     assessment_flags = df.apply(_check_assessment_number, axis=1)
     price_flags = df.apply(_check_price, axis=1)
-    address_flags = df.apply(_check_address, axis=1)
+    # property skipper has a "name" column, equivalent to "address", 
+    # but not skipperstats.
+    if "name" in df.columns:
+        address_flags = df.apply(_check_address, axis=1)
+    else:
+        address_flags = df.apply(lambda x: "", axis=1)
     
     # Combine flags
     for idx in df.index:

@@ -7,6 +7,7 @@ import numpy as np
 import pandas as pd
 
 import utils.skipperstatsutils as SSU
+import utils.skipperutils as SU
 import utils.LTROutils as LT 
 
 # Get secret URL API
@@ -128,11 +129,24 @@ print('\n there are {} new distinct sales from Skipper Stats'.format(len(sss)))
 ################  FIX NO NAME BUILDINGS ################
 sss = SSU.fix_no_name_buildings(sss, lv)
 
+####### remove sales with no name, address or ref #######
+# as it would be unidentifiable.
+# so far only applies to 1 sale.
+# Remove sales with no identifying information
+print("\nRemoving sales with no ref, building name or address...")
+sss = sss[~((sss.ref.isin(["0", 0, "", None])) & 
+            (sss.building_name.isin(["0", 0, "", None])) &
+            (sss.address_line.isin(["0", 0, "", None])))]
+
 # preare for export with renaming or deleting columns.
 sss.drop(['is_land', 'is_fractional_unit'], axis=1, inplace=True)
 sss = sss.rename(columns={'arv_default': 'arv', 
                         'transaction_date': 'registration_date',
                         'building_name': 'property_name',
                         'address_line': 'address'})
+
+# add flags for incorrect or missing assessment numbers
+# or incorrect or missing prices
+sss = SU.clean_and_flag_properties(sss)
 
 sss.to_csv("./data/kw-skipper-stats-sales.csv", index=False)
